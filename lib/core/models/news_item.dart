@@ -32,7 +32,7 @@ class NewsItem {
       url:         json['url']         as String? ?? '',
       imageUrl:    json['urlToImage']  as String?,
       source:      sourceMap['name']   as String? ?? 'Unknown',
-      publishedAt: DateTime.tryParse(json['publishedAt'] as String? ?? '') ?? DateTime.now(),
+      publishedAt: DateTime.tryParse(json['publishedAt']?.toString() ?? '') ?? DateTime.now(),
       category:    json['category']    as String? ?? 'general',
     );
   }
@@ -46,7 +46,7 @@ class NewsItem {
       url:         json['url']         as String? ?? '',
       imageUrl:    json['image']       as String?,
       source:      sourceMap['name']   as String? ?? 'Unknown',
-      publishedAt: DateTime.tryParse(json['publishedAt'] as String? ?? '') ?? DateTime.now(),
+      publishedAt: DateTime.tryParse(json['publishedAt']?.toString() ?? '') ?? DateTime.now(),
       category:    'general',
     );
   }
@@ -87,7 +87,7 @@ class NewsItem {
       url:         json['url']         as String? ?? '',
       imageUrl:    json['imageUrl']    as String?,
       source:      json['source']      as String? ?? 'Unknown',
-      publishedAt: DateTime.tryParse(json['publishedAt'] as String? ?? '') ?? DateTime.now(),
+      publishedAt: DateTime.tryParse(json['publishedAt']?.toString() ?? '') ?? DateTime.now(),
       category:    json['category']    as String? ?? 'general',
       aiSummary:   json['aiSummary']   as String?,
       truthScore:  (json['truthScore'] as num?)?.toInt(),

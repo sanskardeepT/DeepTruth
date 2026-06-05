@@ -27,7 +27,7 @@ class AchievementBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: unlocked
-              ? AppColors.accent.withOpacity(0.4)
+              ? AppColors.accent.withValues(alpha: 0.4)
               : AppColors.divider,
         ),
       ),

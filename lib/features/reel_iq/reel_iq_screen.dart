@@ -142,7 +142,7 @@ class _ReelIQScreenState extends State<ReelIQScreen> {
             border: Border.all(color: const Color(0xFF9B59B6), width: 1.5),
             boxShadow: [
               BoxShadow(
-                  color: const Color(0xFF9B59B6).withOpacity(0.25),
+                  color: const Color(0xFF9B59B6).withValues(alpha: 0.25),
                   blurRadius: 24)
             ],
           ),

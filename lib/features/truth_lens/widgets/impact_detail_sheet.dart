@@ -20,11 +20,11 @@ class ImpactDetailSheet extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             children: [
-              const Icon(Icons.person_rounded, color: AppColors.accent, size: 18),
-              const SizedBox(width: 8),
-              const Text(
+              Icon(Icons.person_rounded, color: AppColors.accent, size: 18),
+              SizedBox(width: 8),
+              Text(
                 'HOW THIS AFFECTS YOU',
                 style: TextStyle(
                   color:        AppColors.accent,
@@ -130,9 +130,9 @@ class ImpactDetailSheet extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color:        AppColors.info.withOpacity(0.06),
+                color:        AppColors.info.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(8),
-                border:       Border.all(color: AppColors.info.withOpacity(0.2)),
+                border:       Border.all(color: AppColors.info.withValues(alpha: 0.2)),
               ),
               child: Row(
                 children: [
@@ -209,10 +209,10 @@ class ImpactDetailSheet extends StatelessWidget {
           margin: EdgeInsets.only(right: e.key < items.length - 1 ? 8 : 0),
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color:        (e.value.$3 as Color).withOpacity(0.06),
+            color:        e.value.$3.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(10),
             border: Border(
-              top: BorderSide(color: e.value.$3 as Color, width: 2),
+              top: BorderSide(color: e.value.$3, width: 2),
             ),
           ),
           child: Column(
@@ -221,7 +221,7 @@ class ImpactDetailSheet extends StatelessWidget {
               Text(
                 e.value.$1,
                 style: TextStyle(
-                  color:      e.value.$3 as Color,
+                  color:      e.value.$3,
                   fontSize:   10,
                   fontWeight: FontWeight.bold,
                 ),

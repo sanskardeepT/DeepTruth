@@ -59,15 +59,15 @@ class CheckResultShimmer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
+    return const Padding(
+      padding: EdgeInsets.all(16),
       child: Column(
         children: [
-          const LoadingShimmer(height: 160, borderRadius: BorderRadius.all(Radius.circular(20))),
-          const SizedBox(height: 16),
-          const LoadingShimmer(height: 80),
-          const SizedBox(height: 12),
-          const LoadingShimmer(height: 120),
+          LoadingShimmer(height: 160, borderRadius: BorderRadius.all(Radius.circular(20))),
+          SizedBox(height: 16),
+          LoadingShimmer(height: 80),
+          SizedBox(height: 12),
+          LoadingShimmer(height: 120),
         ],
       ),
     );

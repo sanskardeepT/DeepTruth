@@ -41,10 +41,41 @@ class NewsService {
       }
     }
 
+    if (articles.isEmpty) {
+      articles = _getOfflineMockNews(category);
+    }
+
     // Summarize first 5 articles with Gemini
     articles = await _summarizeArticles(articles);
     _writeCache(cacheKey, articles);
     return articles;
+  }
+
+  List<NewsItem> _getOfflineMockNews(String category) {
+    return [
+      NewsItem(
+        id: 'mock_1',
+        title: 'Deepfake Videos of Public Figures Spreading Online: What You Need to Know',
+        description: 'A surge in synthetic media is raising concerns about digital literacy. Experts advise checking source authenticity before sharing.',
+        url: 'https://lensiq.app/education/deepfakes',
+        source: 'LensIQ Trust Observatory',
+        publishedAt: DateTime.now().subtract(const Duration(hours: 2)),
+        category: category,
+        aiSummary: 'LensIQ Observatory highlights a rise in deepfakes. Users are advised to rely on verified metadata, trace sources, and avoid instant re-shares of emotionally charged clips.',
+        truthScore: 85,
+      ),
+      NewsItem(
+        id: 'mock_2',
+        title: 'How to Recognize a Phishing Scam Link on WhatsApp',
+        description: 'WhatsApp forwards offering free government scheme benefits are growing. Learn to identify the warning signs.',
+        url: 'https://lensiq.app/education/scams',
+        source: 'Cyber Security Alert',
+        publishedAt: DateTime.now().subtract(const Duration(hours: 5)),
+        category: category,
+        aiSummary: 'Cybersecurity agencies warn against viral forwards promising cash or prizes. Always check the domain extension and look for off-platform confirmations.',
+        truthScore: 90,
+      ),
+    ];
   }
 
   // ── PRIVATE — NEWSAPI ─────────────────────────────────────────────

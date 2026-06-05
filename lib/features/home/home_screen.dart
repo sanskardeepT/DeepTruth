@@ -51,24 +51,24 @@ class HomeScreen extends StatelessWidget {
       floating: true,
       snap: true,
       backgroundColor: AppColors.bgPrimary,
-      title: Row(
+      title: const Row(
         children: [
-          const Icon(Icons.lens, color: AppColors.accent, size: 22),
-          const SizedBox(width: 6),
+          Icon(Icons.lens, color: AppColors.accent, size: 22),
+          SizedBox(width: 6),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
                 AppStrings.appName,
-                style: const TextStyle(
+                style: TextStyle(
                   color:      AppColors.textPrimary,
                   fontSize:   18,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 0.5,
                 ),
               ),
-              const Text(
+              Text(
                 'See through everything',
                 style: TextStyle(color: AppColors.textMuted, fontSize: 10),
               ),
@@ -122,9 +122,9 @@ class HomeScreen extends StatelessWidget {
           margin: const EdgeInsets.symmetric(horizontal: 16),
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color:        AppColors.warning.withOpacity(0.1),
+            color:        AppColors.warning.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(10),
-            border:       Border.all(color: AppColors.warning.withOpacity(0.4)),
+            border:       Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
           ),
           child: const Row(
             children: [

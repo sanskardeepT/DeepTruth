@@ -89,14 +89,14 @@ class _StreakScreenState extends State<StreakScreen> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            const Color(0xFFFF6B35).withOpacity(0.15),
+            const Color(0xFFFF6B35).withValues(alpha: 0.15),
             AppColors.bgCard,
           ],
           begin: Alignment.topCenter,
           end:   Alignment.bottomCenter,
         ),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFFF6B35).withOpacity(0.3)),
+        border: Border.all(color: const Color(0xFFFF6B35).withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [
@@ -121,19 +121,19 @@ class _StreakScreenState extends State<StreakScreen> {
               height:     1.0,
             ),
           ).animate().scale(duration: 600.ms, curve: Curves.elasticOut),
-          Text(
+          const Text(
             AppStrings.streakDays,
-            style: const TextStyle(color: AppColors.textMuted, fontSize: 14),
+            style: TextStyle(color: AppColors.textMuted, fontSize: 14),
           ),
           const SizedBox(height: 16),
           // Rank badge
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             decoration: BoxDecoration(
-              color:        const Color(0xFFFF6B35).withOpacity(0.12),
+              color:        const Color(0xFFFF6B35).withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(30),
               border:       Border.all(
-                  color: const Color(0xFFFF6B35).withOpacity(0.4)),
+                  color: const Color(0xFFFF6B35).withValues(alpha: 0.4)),
             ),
             child: Text(
               streak.rank,
@@ -149,9 +149,9 @@ class _StreakScreenState extends State<StreakScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
-                color:        AppColors.danger.withOpacity(0.1),
+                color:        AppColors.danger.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.danger.withOpacity(0.3)),
+                border: Border.all(color: AppColors.danger.withValues(alpha: 0.3)),
               ),
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
@@ -379,11 +379,11 @@ class _LeaderboardEntry extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color:  isTop3
-            ? rankColor.withOpacity(0.06)
+            ? rankColor.withValues(alpha: 0.06)
             : AppColors.bgCard,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isTop3 ? rankColor.withOpacity(0.3) : AppColors.divider,
+          color: isTop3 ? rankColor.withValues(alpha: 0.3) : AppColors.divider,
         ),
       ),
       child: Row(

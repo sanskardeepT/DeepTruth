@@ -2,8 +2,6 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:qr_flutter/qr_flutter.dart';
-import '../constants/app_colors.dart';
 import '../models/report_model.dart';
 
 class ReportGenerator {
@@ -399,5 +397,4 @@ class ReportGenerator {
 // Needed for PdfColor alpha manipulation
 extension on PdfColor {
   PdfColor copyWith({double? alpha}) => PdfColor(red, green, blue, alpha ?? this.alpha);
-  PdfColor flatten() => this;
 }

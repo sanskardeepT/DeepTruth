@@ -32,11 +32,11 @@ class CheckResult {
       verdict:             json['verdict']            as String? ?? 'UNVERIFIED',
       explanation:         json['explanation']        as String? ?? 'Analysis unavailable.',
       missingContext:      json['missingContext']     as String?,
-      sources:             List<String>.from(json['sources'] ?? []),
-      manipulationTactics: List<String>.from(json['manipulationTactics'] ?? []),
+      sources:             (json['sources'] as List?)?.map((e) => e?.toString() ?? '').toList() ?? const [],
+      manipulationTactics: (json['manipulationTactics'] as List?)?.map((e) => e?.toString() ?? '').toList() ?? const [],
       manipulationScore:   (json['manipulationScore'] as num?)?.toInt() ?? 0,
       contentType:         json['contentType']        as String? ?? 'unknown',
-      analyzedAt:          DateTime.tryParse(json['analyzedAt'] ?? '') ?? DateTime.now(),
+      analyzedAt:          DateTime.tryParse(json['analyzedAt']?.toString() ?? '') ?? DateTime.now(),
       reportId:            json['reportId']           as String? ?? 'LIQ-UNKNOWN',
     );
   }

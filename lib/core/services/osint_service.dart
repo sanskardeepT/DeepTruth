@@ -258,13 +258,21 @@ class OsintService {
     _incrementCount(OsintQueryType.phone);
     final cleaned = phone.replaceAll(RegExp(r'[^\d+]'), '');
     String country = 'Unknown';
-    if (cleaned.startsWith('+91') || cleaned.startsWith('91')) country = 'India';
-    else if (cleaned.startsWith('+1'))  country = 'USA/Canada';
-    else if (cleaned.startsWith('+44')) country = 'United Kingdom';
-    else if (cleaned.startsWith('+61')) country = 'Australia';
-    else if (cleaned.startsWith('+49')) country = 'Germany';
-    else if (cleaned.startsWith('+86')) country = 'China';
-    else if (cleaned.startsWith('+81')) country = 'Japan';
+    if (cleaned.startsWith('+91') || cleaned.startsWith('91')) {
+      country = 'India';
+    } else if (cleaned.startsWith('+1')) {
+      country = 'USA/Canada';
+    } else if (cleaned.startsWith('+44')) {
+      country = 'United Kingdom';
+    } else if (cleaned.startsWith('+61')) {
+      country = 'Australia';
+    } else if (cleaned.startsWith('+49')) {
+      country = 'Germany';
+    } else if (cleaned.startsWith('+86')) {
+      country = 'China';
+    } else if (cleaned.startsWith('+81')) {
+      country = 'Japan';
+    }
 
     return OsintResult(
       queryType: OsintQueryType.phone,
@@ -272,7 +280,7 @@ class OsintService {
       findings: [
         OsintFinding(label: 'Number',     value: cleaned),
         OsintFinding(label: 'Country',    value: country),
-        OsintFinding(label: 'Note',       value: 'Advanced lookup requires NumVerify API key'),
+        const OsintFinding(label: 'Note',       value: 'Advanced lookup requires NumVerify API key'),
       ],
       riskLevel:  'low',
       analyzedAt: DateTime.now(),

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
@@ -122,7 +121,7 @@ class TruthLensScreen extends StatelessWidget {
             border: Border.all(color: AppColors.accent, width: 1.5),
             boxShadow: [
               BoxShadow(
-                color:      AppColors.accent.withOpacity(0.25),
+                color:      AppColors.accent.withValues(alpha: 0.25),
                 blurRadius: 24,
                 spreadRadius: 4,
               ),
@@ -166,7 +165,7 @@ class TruthLensScreen extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: AppColors.bgCard,
-            border: Border.all(color: AppColors.accent.withOpacity(0.3)),
+            border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
           ),
           child: const Padding(
             padding: EdgeInsets.all(16),

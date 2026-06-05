@@ -102,11 +102,11 @@ class _TraceIQScreenState extends State<TraceIQScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             color: AppColors.bgSecondary,
-            child: Row(
+            child: const Row(
               children: [
-                const Icon(Icons.shield_outlined, color: AppColors.accent, size: 14),
-                const SizedBox(width: 8),
-                const Expanded(
+                Icon(Icons.shield_outlined, color: AppColors.accent, size: 14),
+                SizedBox(width: 8),
+                Expanded(
                   child: Text(
                     AppStrings.traceDisclaimer,
                     style: TextStyle(color: AppColors.textMuted, fontSize: 11),
@@ -129,10 +129,10 @@ class _TraceIQScreenState extends State<TraceIQScreen>
                   _buildSelfInvestigateCta(),
                   const SizedBox(height: 20),
                   if (_isLoading)
-                    Column(children: [
-                      const LoadingShimmer(height: 200),
-                      const SizedBox(height: 12),
-                      const LoadingShimmer(height: 100),
+                    const Column(children: [
+                      LoadingShimmer(height: 200),
+                      SizedBox(height: 12),
+                      LoadingShimmer(height: 100),
                     ])
                   else if (_result != null)
                     OsintResultCard(result: _result!)
@@ -154,13 +154,13 @@ class _TraceIQScreenState extends State<TraceIQScreen>
       decoration: BoxDecoration(
         color:        AppColors.bgCard,
         borderRadius: BorderRadius.circular(14),
-        border:       Border.all(color: AppColors.accent.withOpacity(0.3)),
+        border:       Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
       ),
-      child: Row(
+      child: const Row(
         children: [
-          const Icon(Icons.manage_search_rounded, color: AppColors.accent, size: 22),
-          const SizedBox(width: 12),
-          const Expanded(
+          Icon(Icons.manage_search_rounded, color: AppColors.accent, size: 22),
+          SizedBox(width: 12),
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -180,7 +180,7 @@ class _TraceIQScreenState extends State<TraceIQScreen>
               ],
             ),
           ),
-          const Icon(Icons.arrow_forward_ios_rounded,
+          Icon(Icons.arrow_forward_ios_rounded,
               color: AppColors.textMuted, size: 14),
         ],
       ),

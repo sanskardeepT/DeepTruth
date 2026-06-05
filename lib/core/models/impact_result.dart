@@ -27,7 +27,7 @@ class ImpactResult {
       futureImpact6Months:       json['futureImpact6Months']       as String? ?? '',
       futureImpact1Year:         json['futureImpact1Year']         as String? ?? '',
       futureImpact5Years:        json['futureImpact5Years']        as String? ?? '',
-      actionableSteps:           List<String>.from(json['actionableSteps'] ?? []),
+      actionableSteps:           (json['actionableSteps'] as List?)?.map((e) => e?.toString() ?? '').toList() ?? const [],
       affectedPeopleDescription: json['affectedPeopleDescription'] as String? ?? '',
     );
   }

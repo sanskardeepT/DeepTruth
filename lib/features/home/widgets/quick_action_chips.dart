@@ -72,7 +72,7 @@ class _ActionChip extends StatelessWidget {
         decoration: BoxDecoration(
           color:        AppColors.bgCard,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: action.color.withOpacity(0.3)),
+          border: Border.all(color: action.color.withValues(alpha: 0.3)),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

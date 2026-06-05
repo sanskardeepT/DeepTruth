@@ -59,7 +59,7 @@ class NewsCard extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color:        AppColors.accent.withOpacity(0.12),
+                          color:        AppColors.accent.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
@@ -109,12 +109,12 @@ class NewsCard extends StatelessWidget {
                   ),
                   if (article.aiSummary != null) ...[
                     const SizedBox(height: 6),
-                    Row(
+                    const Row(
                       children: [
-                        const Icon(Icons.auto_awesome_rounded,
+                        Icon(Icons.auto_awesome_rounded,
                             color: AppColors.accent, size: 11),
-                        const SizedBox(width: 4),
-                        const Text(
+                        SizedBox(width: 4),
+                        Text(
                           'AI Summary',
                           style: TextStyle(
                               color: AppColors.accent, fontSize: 10),

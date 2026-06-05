@@ -66,11 +66,11 @@ class StreakData {
     return StreakData(
       currentStreak:        (json['currentStreak']        as num?)?.toInt() ?? 0,
       longestStreak:        (json['longestStreak']        as num?)?.toInt() ?? 0,
-      lastActiveDate:       DateTime.tryParse(json['lastActiveDate']  as String? ?? ''),
+      lastActiveDate:       DateTime.tryParse(json['lastActiveDate']?.toString() ?? ''),
       totalChecks:          (json['totalChecks']          as num?)?.toInt() ?? 0,
       fakesCaught:          (json['fakesCaught']          as num?)?.toInt() ?? 0,
       freezesUsedThisMonth: (json['freezesUsedThisMonth'] as num?)?.toInt() ?? 0,
-      lastFreezeDate:       DateTime.tryParse(json['lastFreezeDate']  as String? ?? ''),
+      lastFreezeDate:       DateTime.tryParse(json['lastFreezeDate']?.toString() ?? ''),
     );
   }
 

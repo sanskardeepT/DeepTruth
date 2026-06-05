@@ -1,10 +1,6 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/constants/app_constants.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/providers/app_provider.dart';
 import '../../core/providers/news_provider.dart';
@@ -82,9 +78,9 @@ class _TrustFeedScreenState extends State<TrustFeedScreen> {
           final error    = news.getError(category);
 
           if (loading && articles.isEmpty) {
-            return Column(children: [
+            return const Column(children: [
               Expanded(child: ListShimmer(count: 5)),
-              const AdBannerWidget(),
+              AdBannerWidget(),
             ]);
           }
 

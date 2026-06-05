@@ -73,7 +73,7 @@ class MainShellState extends State<MainShell> {
       decoration: BoxDecoration(
         border: Border(
           top: BorderSide(
-            color: Colors.white.withOpacity(0.06),
+            color: Colors.white.withValues(alpha: 0.06),
           ),
         ),
       ),
@@ -81,7 +81,7 @@ class MainShellState extends State<MainShell> {
         selectedIndex: _currentIndex,
         onDestinationSelected: (i) => setState(() => _currentIndex = i),
         backgroundColor: const Color(0xFF141830),
-        indicatorColor: const Color(0xFF00D4FF).withOpacity(0.15),
+        indicatorColor: const Color(0xFF00D4FF).withValues(alpha: 0.15),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         destinations: const [
           NavigationDestination(

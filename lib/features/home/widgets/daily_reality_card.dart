@@ -24,10 +24,10 @@ class DailyRealityCard extends StatelessWidget {
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppColors.accent.withOpacity(0.3)),
+              border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
               boxShadow: [
                 BoxShadow(
-                  color:       AppColors.accent.withOpacity(0.08),
+                  color:       AppColors.accent.withValues(alpha: 0.08),
                   blurRadius:  20,
                   spreadRadius: 0,
                 ),
@@ -41,9 +41,9 @@ class DailyRealityCard extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color:        AppColors.accent.withOpacity(0.15),
+                        color:        AppColors.accent.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(20),
-                        border:       Border.all(color: AppColors.accent.withOpacity(0.4)),
+                        border:       Border.all(color: AppColors.accent.withValues(alpha: 0.4)),
                       ),
                       child: const Row(
                         children: [

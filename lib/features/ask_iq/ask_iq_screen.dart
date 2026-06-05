@@ -149,7 +149,7 @@ class _AskIQScreenState extends State<AskIQScreen> {
   Widget _buildInputBar() {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AppColors.bgSecondary,
         border: Border(top: BorderSide(color: AppColors.divider)),
       ),
@@ -208,9 +208,9 @@ class _AskIQScreenState extends State<AskIQScreen> {
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color:        AppColors.bgCard,
-              borderRadius: const BorderRadius.only(
+              borderRadius: BorderRadius.only(
                 topRight:    Radius.circular(16),
                 bottomLeft:  Radius.circular(16),
                 bottomRight: Radius.circular(16),
@@ -264,7 +264,7 @@ class _ChatBubble extends StatelessWidget {
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: msg.isUser
-                        ? AppColors.accent.withOpacity(0.15)
+                        ? AppColors.accent.withValues(alpha: 0.15)
                         : AppColors.bgCard,
                     borderRadius: BorderRadius.only(
                       topLeft:     const Radius.circular(16),
@@ -274,7 +274,7 @@ class _ChatBubble extends StatelessWidget {
                     ),
                     border: Border.all(
                       color: msg.isUser
-                          ? AppColors.accent.withOpacity(0.3)
+                          ? AppColors.accent.withValues(alpha: 0.3)
                           : AppColors.divider,
                     ),
                   ),
@@ -332,9 +332,9 @@ class _SourceChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
-          color:        AppColors.accent.withOpacity(0.08),
+          color:        AppColors.accent.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(6),
-          border:       Border.all(color: AppColors.accent.withOpacity(0.2)),
+          border:       Border.all(color: AppColors.accent.withValues(alpha: 0.2)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

@@ -18,10 +18,10 @@ class TruthScoreCard extends StatelessWidget {
       decoration: BoxDecoration(
         color:        AppColors.bgCard,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.4), width: 1.5),
+        border: Border.all(color: color.withValues(alpha: 0.4), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color:      color.withOpacity(0.08),
+            color:      color.withValues(alpha: 0.08),
             blurRadius: 20,
           ),
         ],
@@ -87,9 +87,9 @@ class TruthScoreCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color:        AppColors.warning.withOpacity(0.08),
+                color:        AppColors.warning.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(10),
-                border:       Border.all(color: AppColors.warning.withOpacity(0.3)),
+                border:       Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -137,9 +137,9 @@ class TruthScoreCard extends StatelessWidget {
                   children: result.manipulationTactics.map((t) => Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color:        AppColors.danger.withOpacity(0.1),
+                      color:        AppColors.danger.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20),
-                      border:       Border.all(color: AppColors.danger.withOpacity(0.3)),
+                      border:       Border.all(color: AppColors.danger.withValues(alpha: 0.3)),
                     ),
                     child: Text(
                       t,

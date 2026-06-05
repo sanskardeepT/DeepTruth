@@ -31,16 +31,16 @@ class UserProfile {
   };
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
-    final counts = json['categoryCheckCounts'] as Map<String, dynamic>? ?? {};
+    final counts = json['categoryCheckCounts'] as Map? ?? {};
     return UserProfile(
       anonymousId:         json['anonymousId']        as String? ?? '',
       country:             json['country']            as String? ?? 'Global',
       language:            json['language']           as String? ?? 'en',
       ageGroup:            json['ageGroup']           as String?,
-      topInterests:        List<String>.from(json['topInterests'] ?? []),
+      topInterests:        (json['topInterests'] as List?)?.map((e) => e?.toString() ?? '').toList() ?? const [],
       avgSessionMinutes:   (json['avgSessionMinutes'] as num?)?.toDouble() ?? 0.0,
-      usageHours:          List<int>.from(json['usageHours'] ?? []),
-      categoryCheckCounts: counts.map((k, v) => MapEntry(k, (v as num).toInt())),
+      usageHours:          (json['usageHours'] as List?)?.map((e) => (e as num?)?.toInt() ?? 0).toList() ?? const [],
+      categoryCheckCounts: counts.map((k, v) => MapEntry(k?.toString() ?? '', (v as num?)?.toInt() ?? 0)),
     );
   }
 

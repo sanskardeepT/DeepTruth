@@ -63,7 +63,7 @@ class _CheckInputBoxState extends State<CheckInputBox> {
             ),
             boxShadow: _focusNode.hasFocus
                 ? [BoxShadow(
-                    color:      AppColors.accent.withOpacity(0.1),
+                    color:      AppColors.accent.withValues(alpha: 0.1),
                     blurRadius: 12,
                   )]
                 : null,
@@ -151,14 +151,14 @@ class _CheckInputBoxState extends State<CheckInputBox> {
                 ),
                 elevation: 0,
               ),
-              child: Row(
+              child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.policy_rounded, size: 20),
-                  const SizedBox(width: 8),
+                  Icon(Icons.policy_rounded, size: 20),
+                  SizedBox(width: 8),
                   Text(
                     AppStrings.analyzeBtn,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize:   16,
                     ),

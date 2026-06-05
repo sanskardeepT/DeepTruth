@@ -91,7 +91,7 @@ class CheckProvider extends ChangeNotifier {
 
   Future<void> _loadImpact(CheckResult checkResult) async {
     try {
-      final country   = 'Global'; // AppProvider provides this; simplified here
+      const country   = 'Global'; // AppProvider provides this; simplified here
       final interests = SilentProfiler.instance.topInterests;
       _impactResult   = await GeminiService.instance.calculateImpact(
         checkResult: checkResult,

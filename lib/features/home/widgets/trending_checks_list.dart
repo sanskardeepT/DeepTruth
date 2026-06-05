@@ -83,7 +83,7 @@ class _TrendingItem extends StatelessWidget {
             height: 28,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color:  AppColors.accent.withOpacity(0.1),
+              color:  AppColors.accent.withValues(alpha: 0.1),
               shape:  BoxShape.circle,
             ),
             child: Text(
@@ -111,7 +111,7 @@ class _TrendingItem extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color:        AppColors.danger.withOpacity(0.1),
+              color:        AppColors.danger.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
