@@ -117,11 +117,14 @@ class _AskIQScreenState extends State<AskIQScreen> {
           IconButton(
             icon: const Icon(Icons.delete_outline_rounded, color: AppColors.textMuted),
             tooltip: 'Clear chat',
-            onPressed: () => setState(() {
-              _messages
-                ..clear()
-                ..add(_welcomeMsg);
-            }),
+            onPressed: () {
+              if (!mounted) return;
+              setState(() {
+                _messages
+                  ..clear()
+                  ..add(_welcomeMsg);
+              });
+            },
           ),
         ],
       ),

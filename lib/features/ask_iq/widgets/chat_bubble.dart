@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:clipboard/clipboard.dart';
 import '../../../core/constants/app_colors.dart';
 import 'source_chip.dart';
 
@@ -36,7 +36,7 @@ class ChatBubble extends StatelessWidget {
               Flexible(
                 child: GestureDetector(
                   onLongPress: () async {
-                    await FlutterClipboard.copy(text);
+                    await Clipboard.setData(ClipboardData(text: text));
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
