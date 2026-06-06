@@ -38,7 +38,7 @@ class _CategoryTabBarState extends State<CategoryTabBar> {
           return GestureDetector(
             onTap: () {
               if (cat == _selected) return;
-              setState(() => _selected = cat);
+              if (mounted) setState(() => _selected = cat);
               widget.onCategoryChanged(cat);
             },
             child: AnimatedContainer(

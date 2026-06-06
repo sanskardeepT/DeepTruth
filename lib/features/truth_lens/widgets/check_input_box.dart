@@ -129,7 +129,9 @@ class _CheckInputBoxState extends State<CheckInputBox> {
                   contentPadding:  EdgeInsets.all(16),
                 ),
                 textInputAction: TextInputAction.newline,
-                onChanged: (_) => setState(() {}),
+                onChanged: (_) {
+                  if (mounted) setState(() {});
+                },
               ),
               Container(
                 height: 1,

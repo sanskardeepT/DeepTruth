@@ -80,7 +80,7 @@ dependencies:
 
 
   # ── INTL / LOCALIZATION ──────────────────────────────────────────
-  intl: 0.20.2
+  intl: 0.19.0
 
 
   # ── UUID ─────────────────────────────────────────────────────────
@@ -101,3 +101,7 @@ flutter:
     - assets/lottie/
     - assets/fonts/
     - assets/icons/
+
+dependency_overrides:
+  intl: 0.19.0
+

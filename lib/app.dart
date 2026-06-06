@@ -59,7 +59,7 @@ class MainShellState extends State<MainShell> {
   int _currentIndex = 0;
 
   void setIndex(int index) {
-    setState(() => _currentIndex = index);
+    if (mounted) setState(() => _currentIndex = index);
   }
 
   final List<Widget> _screens = const [
@@ -93,7 +93,9 @@ class MainShellState extends State<MainShell> {
       ),
       child: NavigationBar(
         selectedIndex: _currentIndex,
-        onDestinationSelected: (i) => setState(() => _currentIndex = i),
+        onDestinationSelected: (i) {
+          if (mounted) setState(() => _currentIndex = i);
+        },
         backgroundColor: const Color(0xFF141830),
         indicatorColor: const Color(0xFF00D4FF).withValues(alpha: 0.15),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,

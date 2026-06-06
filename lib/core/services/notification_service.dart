@@ -191,6 +191,5 @@ class NotificationService {
 
   void _onNotificationTap(NotificationResponse response) {
     debugPrint('Notification tapped: ${response.id}');
-    // Navigation handled by app_links / deep link setup
   }
 }
