@@ -25,7 +25,7 @@ class _ReportDownloadButtonState extends State<ReportDownloadButton> {
 
   Future<void> _generate() async {
     if (_isGenerating) return;
-    setState(() => _isGenerating = true);
+    if (mounted) setState(() => _isGenerating = true);
 
     try {
       await ReportService.instance.generateAndShare(

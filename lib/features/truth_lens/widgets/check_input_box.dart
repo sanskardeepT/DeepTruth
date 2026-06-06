@@ -154,7 +154,7 @@ class _CheckInputBoxState extends State<CheckInputBox> {
                       TextButton.icon(
                         onPressed: () {
                           _controller.clear();
-                          setState(() => _hasText = false);
+                          if (mounted) setState(() => _hasText = false);
                         },
                         icon:  const Icon(Icons.clear_rounded, size: 16),
                         label: const Text('Clear'),
