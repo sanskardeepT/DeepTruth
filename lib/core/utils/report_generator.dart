@@ -7,6 +7,49 @@ import '../models/report_model.dart';
 class ReportGenerator {
   ReportGenerator._();
 
+  static pw.Widget _buildWatermark() {
+    return pw.Positioned.fill(
+      child: pw.Center(
+        child: pw.Transform.rotate(
+          angle: -0.5,
+          child: pw.Text(
+            'LensIQ',
+            style: pw.TextStyle(
+              fontSize: 80,
+              color: PdfColor.fromHex('#0A0E27').flatten().copyWith(alpha: 0.06),
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  static pw.Widget _buildSourceLink(String source, int index) {
+    final cleanSource = source.trim();
+    final isUrl = cleanSource.startsWith('http');
+    final text = '${index + 1}. $cleanSource';
+    
+    if (isUrl) {
+      return pw.UrlLink(
+        destination: cleanSource,
+        child: pw.Text(
+          text,
+          style: const pw.TextStyle(
+            fontSize: 10,
+            color: PdfColors.blue700,
+            decoration: pw.TextDecoration.underline,
+          ),
+        ),
+      );
+    } else {
+      return pw.Text(
+        text,
+        style: const pw.TextStyle(fontSize: 10),
+      );
+    }
+  }
+
   static Future<Uint8List> generate(ReportModel report) async {
     final pdf = pw.Document();
     final cr  = report.checkResult;
@@ -23,22 +66,7 @@ class ReportGenerator {
         margin: const pw.EdgeInsets.all(36),
         build: (ctx) => pw.Stack(
           children: [
-            // Watermark
-            pw.Positioned.fill(
-              child: pw.Center(
-                child: pw.Transform.rotate(
-                  angle: -0.5,
-                  child: pw.Text(
-                    'LensIQ',
-                    style: pw.TextStyle(
-                      fontSize: 80,
-                      color: PdfColor.fromHex('#0A0E27').flatten().copyWith(alpha: 0.06),
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
+            _buildWatermark(),
             // Content
             pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -75,62 +103,64 @@ class ReportGenerator {
       pw.Page(
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(36),
-        build: (ctx) => pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
+        build: (ctx) => pw.Stack(
           children: [
-            _buildSection('SECTION 3 — EVIDENCE'),
-            pw.SizedBox(height: 8),
-            if (cr.sources.isEmpty)
-              pw.Text('No specific sources cited.', style: const pw.TextStyle(fontSize: 10))
-            else
-              ...cr.sources.asMap().entries.map((e) => pw.Padding(
-                padding: const pw.EdgeInsets.only(bottom: 4),
-                child: pw.Text(
-                  '${e.key + 1}. ${e.value}',
-                  style: const pw.TextStyle(fontSize: 10),
-                ),
-              )),
-            if (cr.manipulationTactics.isNotEmpty) ...[
-              pw.SizedBox(height: 12),
-              _buildSection('Manipulation Tactics Detected'),
-              pw.SizedBox(height: 6),
-              pw.Wrap(
-                spacing: 6,
-                runSpacing: 4,
-                children: cr.manipulationTactics
-                    .map((t) => _buildChip(t, PdfColors.red100))
-                    .toList(),
-              ),
-            ],
-            if (ir != null) ...[
-              pw.SizedBox(height: 20),
-              _buildSection('SECTION 4 — PERSONAL IMPACT'),
-              pw.SizedBox(height: 8),
-              pw.Text(ir.directImpact, style: const pw.TextStyle(fontSize: 11)),
-              if (ir.financialImpact != null) ...[
+            _buildWatermark(),
+            pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                _buildSection('SECTION 3 — EVIDENCE'),
                 pw.SizedBox(height: 8),
-                pw.Text('💰 Financial: ${ir.financialImpact}',
-                    style: const pw.TextStyle(fontSize: 10)),
+                if (cr.sources.isEmpty)
+                  pw.Text('No specific sources cited.', style: const pw.TextStyle(fontSize: 10))
+                else
+                  ...cr.sources.asMap().entries.map((e) => pw.Padding(
+                    padding: const pw.EdgeInsets.only(bottom: 4),
+                    child: _buildSourceLink(e.value, e.key),
+                  )),
+                if (cr.manipulationTactics.isNotEmpty) ...[
+                  pw.SizedBox(height: 12),
+                  _buildSection('Manipulation Tactics Detected'),
+                  pw.SizedBox(height: 6),
+                  pw.Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: cr.manipulationTactics
+                        .map((t) => _buildChip(t, PdfColors.red100))
+                        .toList(),
+                  ),
+                ],
+                if (ir != null) ...[
+                  pw.SizedBox(height: 20),
+                  _buildSection('SECTION 4 — PERSONAL IMPACT'),
+                  pw.SizedBox(height: 8),
+                  pw.Text(ir.directImpact, style: const pw.TextStyle(fontSize: 11)),
+                  if (ir.financialImpact != null) ...[
+                    pw.SizedBox(height: 8),
+                    pw.Text('💰 Financial: ${ir.financialImpact}',
+                        style: const pw.TextStyle(fontSize: 10)),
+                  ],
+                  if (ir.healthImpact != null) ...[
+                    pw.SizedBox(height: 4),
+                    pw.Text('🏥 Health: ${ir.healthImpact}',
+                        style: const pw.TextStyle(fontSize: 10)),
+                  ],
+                  pw.SizedBox(height: 12),
+                  _buildTimeline(ir.futureImpact6Months, ir.futureImpact1Year, ir.futureImpact5Years),
+                  if (ir.actionableSteps.isNotEmpty) ...[
+                    pw.SizedBox(height: 12),
+                    pw.Text('Recommended Actions:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11)),
+                    pw.SizedBox(height: 4),
+                    ...ir.actionableSteps.asMap().entries.map((e) => pw.Text(
+                      '${e.key + 1}. ${e.value}',
+                      style: const pw.TextStyle(fontSize: 10),
+                    )),
+                  ],
+                ],
+                pw.Spacer(),
+                _buildFooter(report.reportId, 2),
               ],
-              if (ir.healthImpact != null) ...[
-                pw.SizedBox(height: 4),
-                pw.Text('🏥 Health: ${ir.healthImpact}',
-                    style: const pw.TextStyle(fontSize: 10)),
-              ],
-              pw.SizedBox(height: 12),
-              _buildTimeline(ir.futureImpact6Months, ir.futureImpact1Year, ir.futureImpact5Years),
-              if (ir.actionableSteps.isNotEmpty) ...[
-                pw.SizedBox(height: 12),
-                pw.Text('Recommended Actions:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11)),
-                pw.SizedBox(height: 4),
-                ...ir.actionableSteps.asMap().entries.map((e) => pw.Text(
-                  '${e.key + 1}. ${e.value}',
-                  style: const pw.TextStyle(fontSize: 10),
-                )),
-              ],
-            ],
-            pw.Spacer(),
-            _buildFooter(report.reportId, 2),
+            ),
           ],
         ),
       ),
@@ -141,47 +171,56 @@ class ReportGenerator {
       pw.Page(
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(36),
-        build: (ctx) => pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
+        build: (ctx) => pw.Stack(
           children: [
-            _buildSection('SECTION 5 — ALL VERIFIED SOURCES'),
-            pw.SizedBox(height: 8),
-            if (cr.sources.isEmpty)
-              pw.Text('No external sources cited for this analysis.',
-                  style: const pw.TextStyle(fontSize: 10))
-            else
-              ...cr.sources.asMap().entries.map((e) => pw.Padding(
-                padding: const pw.EdgeInsets.only(bottom: 6),
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text('${e.key + 1}. ${e.value}',
-                        style: const pw.TextStyle(fontSize: 10)),
-                  ],
-                ),
-              )),
-            pw.SizedBox(height: 24),
-            _buildSection('SECTION 6 — REPORT VERIFICATION'),
-            pw.SizedBox(height: 8),
-            pw.Row(
+            _buildWatermark(),
+            pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                _buildSection('SECTION 5 — ALL VERIFIED SOURCES'),
+                pw.SizedBox(height: 8),
+                if (cr.sources.isEmpty)
+                  pw.Text('No external sources cited for this analysis.',
+                      style: const pw.TextStyle(fontSize: 10))
+                else
+                  ...cr.sources.asMap().entries.map((e) => pw.Padding(
+                    padding: const pw.EdgeInsets.only(bottom: 6),
+                    child: _buildSourceLink(e.value, e.key),
+                  )),
+                pw.SizedBox(height: 24),
+                _buildSection('SECTION 6 — REPORT VERIFICATION'),
+                pw.SizedBox(height: 8),
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
-                    pw.Text('Report ID: ${report.reportId}',
-                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12)),
-                    pw.SizedBox(height: 4),
-                    pw.Text('Generated: ${report.generatedAt.toLocal().toString().substring(0, 19)}',
-                        style: const pw.TextStyle(fontSize: 10)),
-                    pw.SizedBox(height: 4),
-                    pw.Text('Scan QR to verify this report →',
-                        style: const pw.TextStyle(fontSize: 10)),
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text('Report ID: ${report.reportId}',
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12)),
+                        pw.SizedBox(height: 4),
+                        pw.Text('Generated: ${report.generatedAt.toLocal().toString().substring(0, 19)}',
+                            style: const pw.TextStyle(fontSize: 10)),
+                        pw.SizedBox(height: 4),
+                        pw.Text('Scan QR to verify this report',
+                            style: const pw.TextStyle(fontSize: 10)),
+                      ],
+                    ),
+                    pw.Container(
+                      width: 60,
+                      height: 60,
+                      child: pw.BarcodeWidget(
+                        barcode: pw.Barcode.qrCode(),
+                        data: 'https://lensiq.app/verify/${report.reportId}',
+                        color: PdfColor.fromHex('#0A0E27'),
+                      ),
+                    ),
                   ],
                 ),
+                pw.Spacer(),
+                _buildFooter(report.reportId, 3),
               ],
             ),
-            pw.Spacer(),
-            _buildFooter(report.reportId, 3),
           ],
         ),
       ),

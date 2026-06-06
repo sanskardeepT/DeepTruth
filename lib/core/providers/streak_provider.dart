@@ -13,6 +13,7 @@ class StreakProvider extends ChangeNotifier {
   List<Map<String, dynamic>> get leaderboard => _leaderboard;
   bool get isLoadingLeaderboard   => _isLoadingLeaderboard;
   bool get freezeSuccess          => _freezeSuccess;
+  List<int> get recentScores      => StreakService.instance.recentScores;
 
   Future<void> initialize() async {
     await StreakService.instance.initialize();

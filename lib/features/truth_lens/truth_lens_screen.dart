@@ -12,38 +12,57 @@ import 'widgets/check_input_box.dart';
 import 'widgets/truth_score_card.dart';
 import 'widgets/impact_detail_sheet.dart';
 
-class TruthLensScreen extends StatelessWidget {
+class TruthLensScreen extends StatefulWidget {
   const TruthLensScreen({super.key});
 
   @override
+  State<TruthLensScreen> createState() => _TruthLensScreenState();
+}
+
+class _TruthLensScreenState extends State<TruthLensScreen> {
+  final _textController = TextEditingController();
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final cp = context.watch<CheckProvider>();
+    if (cp.prefilledContent != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _textController.text = cp.prefilledContent!;
+        cp.clearPrefill();
+      });
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(AppStrings.truthLensTitle),
         actions: [
-          Consumer<CheckProvider>(
-            builder: (_, cp, __) => cp.isDone
-                ? IconButton(
-                    icon: const Icon(Icons.refresh_rounded, color: AppColors.accent),
-                    tooltip: 'New Check',
-                    onPressed: cp.reset,
-                  )
-                : const SizedBox.shrink(),
-          ),
+          if (cp.isDone)
+            IconButton(
+              icon: const Icon(Icons.refresh_rounded, color: AppColors.accent),
+              tooltip: 'New Check',
+              onPressed: () {
+                cp.reset();
+                _textController.clear();
+              },
+            ),
         ],
       ),
-      body: Consumer<CheckProvider>(
-        builder: (_, cp, __) => Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: _buildContent(context, cp),
-              ),
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: _buildContent(context, cp),
             ),
-            const AdBannerWidget(),
-          ],
-        ),
+          ),
+          const AdBannerWidget(),
+        ],
       ),
     );
   }
@@ -56,6 +75,7 @@ class TruthLensScreen extends StatelessWidget {
             _buildHero(),
             const SizedBox(height: 24),
             CheckInputBox(
+              controller: _textController,
               onSubmit: (text) => cp.analyze(text),
             ),
             const SizedBox(height: 24),
@@ -88,7 +108,10 @@ class TruthLensScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             TextButton(
-              onPressed: cp.reset,
+              onPressed: () {
+                cp.reset();
+                _textController.clear();
+              },
               child: const Text(
                 'Check Something Else',
                 style: TextStyle(color: AppColors.textMuted),
@@ -101,7 +124,10 @@ class TruthLensScreen extends StatelessWidget {
         return AppErrorWidget(
           message:    cp.errorMessage ?? AppStrings.errorGeneral,
           icon:       Icons.error_outline_rounded,
-          onRetry:    cp.reset,
+          onRetry:    () {
+            cp.reset();
+            _textController.clear();
+          },
         );
     }
   }

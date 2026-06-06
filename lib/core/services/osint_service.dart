@@ -1,7 +1,6 @@
-import 'dart:convert';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:http/http.dart' as http;
 import '../constants/api_keys.dart';
 import '../constants/app_constants.dart';
 import '../models/osint_result.dart';
@@ -9,6 +8,11 @@ import '../models/osint_result.dart';
 class OsintService {
   OsintService._();
   static final OsintService instance = OsintService._();
+
+  final Dio _dio = Dio(BaseOptions(
+    connectTimeout: const Duration(seconds: 10),
+    receiveTimeout: const Duration(seconds: 10),
+  ));
 
   // ── RATE LIMITER ──────────────────────────────────────────────────
   bool _canQuery(OsintQueryType type) {
@@ -45,17 +49,17 @@ class OsintService {
 
     try {
       _incrementCount(OsintQueryType.email);
-      final uri = Uri.parse(
+      final response = await _dio.get(
         'https://haveibeenpwned.com/api/v3/breachedaccount/${Uri.encodeComponent(email)}',
+        options: Options(
+          headers: {
+            'hibp-api-key':   ApiKeys.hibp,
+            'user-agent':     'LensIQ-App',
+            'Accept':         'application/json',
+          },
+          validateStatus: (status) => status == 200 || status == 404,
+        ),
       );
-      final response = await http.get(
-        uri,
-        headers: {
-          'hibp-api-key':   ApiKeys.hibp,
-          'user-agent':     'LensIQ-App',
-          'Accept':         'application/json',
-        },
-      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 404) {
         return OsintResult(
@@ -71,7 +75,7 @@ class OsintService {
         throw Exception('HIBP returned ${response.statusCode}');
       }
 
-      final breaches = jsonDecode(response.body) as List<dynamic>;
+      final breaches = response.data as List<dynamic>;
       final findings = breaches.map((b) {
         final breach = b as Map<String, dynamic>;
         return OsintFinding(
@@ -105,11 +109,10 @@ class OsintService {
     }
     try {
       _incrementCount(OsintQueryType.ip);
-      final uri = Uri.parse('https://ipapi.co/$ip/json/');
-      final response = await http.get(uri).timeout(const Duration(seconds: 10));
+      final response = await _dio.get('https://ipapi.co/$ip/json/');
       if (response.statusCode != 200) throw Exception('ipapi error');
 
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = response.data as Map<String, dynamic>;
       final findings = <OsintFinding>[
         OsintFinding(label: 'IP',           value: data['ip']           as String? ?? ip),
         OsintFinding(label: 'City',         value: data['city']         as String? ?? 'Unknown'),
@@ -149,11 +152,15 @@ class OsintService {
 
     // GitHub
     try {
-      final ghUri = Uri.parse('https://api.github.com/users/$username');
-      final ghRes = await http.get(ghUri, headers: {'Accept': 'application/json'})
-          .timeout(const Duration(seconds: 8));
+      final ghRes = await _dio.get(
+        'https://api.github.com/users/$username',
+        options: Options(
+          headers: {'Accept': 'application/json'},
+          validateStatus: (status) => status == 200 || status == 404,
+        ),
+      );
       if (ghRes.statusCode == 200) {
-        final gh = jsonDecode(ghRes.body) as Map<String, dynamic>;
+        final gh = ghRes.data as Map<String, dynamic>;
         findings.add(OsintFinding(
           label: 'GitHub',
           value: 'Found — ${gh["public_repos"] ?? 0} repos, ${gh["followers"] ?? 0} followers',
@@ -165,11 +172,15 @@ class OsintService {
 
     // Reddit
     try {
-      final rdUri = Uri.parse('https://www.reddit.com/user/$username/about.json');
-      final rdRes = await http.get(rdUri, headers: {'User-Agent': 'LensIQ/1.0'})
-          .timeout(const Duration(seconds: 8));
+      final rdRes = await _dio.get(
+        'https://www.reddit.com/user/$username/about.json',
+        options: Options(
+          headers: {'User-Agent': 'LensIQ/1.0'},
+          validateStatus: (status) => status == 200 || status == 404,
+        ),
+      );
       if (rdRes.statusCode == 200) {
-        final rd   = jsonDecode(rdRes.body) as Map<String, dynamic>;
+        final rd   = rdRes.data as Map<String, dynamic>;
         final data = rd['data'] as Map<String, dynamic>? ?? {};
         findings.add(OsintFinding(
           label: 'Reddit',
@@ -211,14 +222,18 @@ class OsintService {
           .split('/')[0];
       final tld = cleanDomain.split('.').last;
 
-      final uri = Uri.parse('https://rdap.org/domain/$cleanDomain');
-      final response = await http.get(uri).timeout(const Duration(seconds: 10));
+      final response = await _dio.get(
+        'https://rdap.org/domain/$cleanDomain',
+        options: Options(
+          validateStatus: (status) => status == 200 || status == 404,
+        ),
+      );
 
       if (response.statusCode != 200) {
         throw Exception('RDAP returned ${response.statusCode}');
       }
 
-      final data     = jsonDecode(response.body) as Map<String, dynamic>;
+      final data     = response.data as Map<String, dynamic>;
       final events   = data['events'] as List<dynamic>? ?? [];
       String? regDate, expDate;
       for (final ev in events) {

@@ -1,7 +1,7 @@
 import 'dart:convert';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:http/http.dart' as http;
 import '../constants/api_keys.dart';
 import '../constants/app_constants.dart';
 import '../models/news_item.dart';
@@ -13,6 +13,11 @@ class NewsService {
 
   static const String _newsApiBase = 'https://newsapi.org/v2';
   static const String _gNewsBase   = 'https://gnews.io/api/v4';
+
+  final Dio _dio = Dio(BaseOptions(
+    connectTimeout: const Duration(seconds: 10),
+    receiveTimeout: const Duration(seconds: 10),
+  ));
 
   // ── PUBLIC ────────────────────────────────────────────────────────
   Future<List<NewsItem>> fetchNews({
@@ -87,22 +92,21 @@ class NewsService {
     final countryCode = _countryToCode(country);
     final cat = category == 'all' ? 'general' : category;
 
-    final uri = Uri.parse('$_newsApiBase/top-headlines').replace(
+    final response = await _dio.get(
+      '$_newsApiBase/top-headlines',
       queryParameters: {
         'country':  countryCode,
         'category': cat,
-        'pageSize': AppConstants.newsPageSize.toString(),
-        'page':     page.toString(),
+        'pageSize': AppConstants.newsPageSize,
+        'page':     page,
         'apiKey':   ApiKeys.newsApi,
       },
     );
-
-    final response = await http.get(uri).timeout(const Duration(seconds: 10));
     if (response.statusCode != 200) {
       throw Exception('NewsAPI error: ${response.statusCode}');
     }
 
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final body = response.data as Map<String, dynamic>;
     final rawArticles = body['articles'] as List<dynamic>? ?? [];
     return rawArticles
         .map((a) => NewsItem.fromNewsApiJson(a as Map<String, dynamic>))
@@ -115,21 +119,20 @@ class NewsService {
     final lang = _countryToLang(country);
     final cat  = category == 'all' ? 'general' : category;
 
-    final uri = Uri.parse('$_gNewsBase/top-headlines').replace(
+    final response = await _dio.get(
+      '$_gNewsBase/top-headlines',
       queryParameters: {
         'category': cat,
         'lang':     lang,
-        'max':      AppConstants.newsPageSize.toString(),
+        'max':      AppConstants.newsPageSize,
         'apikey':   ApiKeys.gNews,
       },
     );
-
-    final response = await http.get(uri).timeout(const Duration(seconds: 10));
     if (response.statusCode != 200) {
       throw Exception('GNews error: ${response.statusCode}');
     }
 
-    final body     = jsonDecode(response.body) as Map<String, dynamic>;
+    final body     = response.data as Map<String, dynamic>;
     final articles = body['articles'] as List<dynamic>? ?? [];
     return articles
         .map((a) => NewsItem.fromGNewsJson(a as Map<String, dynamic>))

@@ -77,6 +77,25 @@ class HomeScreen extends StatelessWidget {
         ],
       ),
       actions: [
+        Consumer<AppProvider>(
+          builder: (context, appProvider, __) => PopupMenuButton<String>(
+            icon: const Icon(Icons.language_rounded, color: AppColors.textPrimary),
+            color: AppColors.bgCard,
+            onSelected: (langCode) {
+              appProvider.changeLocale(langCode);
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'en',
+                child: Text('English', style: TextStyle(color: AppColors.textPrimary)),
+              ),
+              const PopupMenuItem(
+                value: 'hi',
+                child: Text('हिंदी (Hindi)', style: TextStyle(color: AppColors.textPrimary)),
+              ),
+            ],
+          ),
+        ),
         Padding(
           padding: const EdgeInsets.only(right: 16),
           child: Consumer<StreakProvider>(

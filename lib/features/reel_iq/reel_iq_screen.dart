@@ -6,8 +6,8 @@ import '../../core/providers/check_provider.dart';
 import '../../widgets/ad_banner_widget.dart';
 import '../../widgets/loading_shimmer.dart';
 import '../../widgets/report_download_button.dart';
-import '../truth_lens/widgets/truth_score_card.dart';
 import 'package:provider/provider.dart';
+import 'widgets/reel_result_card.dart';
 
 class ReelIQScreen extends StatefulWidget {
   const ReelIQScreen({super.key});
@@ -87,7 +87,7 @@ class _ReelIQScreenState extends State<ReelIQScreen> {
         if (cp.result == null) return const SizedBox.shrink();
         return Column(
           children: [
-            TruthScoreCard(result: cp.result!),
+            ReelResultCard(result: cp.result!),
             const SizedBox(height: 16),
             ReportDownloadButton(
               checkResult:  cp.result!,

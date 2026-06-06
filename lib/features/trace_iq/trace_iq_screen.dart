@@ -37,7 +37,7 @@ class _TraceIQScreenState extends State<TraceIQScreen>
     super.initState();
     _tabController = TabController(length: _tabs.length, vsync: this);
     _tabController.addListener(() {
-      if (_tabController.indexIsChanging) {
+      if (_tabController.indexIsChanging && mounted) {
         setState(() {
           _result  = null;
           _error   = null;
@@ -56,6 +56,7 @@ class _TraceIQScreenState extends State<TraceIQScreen>
     if (query.trim().isEmpty) return;
     final type = _tabs[_tabController.index].$3;
 
+    if (!mounted) return;
     setState(() { _isLoading = true; _result = null; _error = null; });
 
     OsintResult result;

@@ -18,12 +18,24 @@ class CheckProvider extends ChangeNotifier {
   ImpactResult? _impactResult;
   ReportModel? _reportModel;
   String? _errorMessage;
+  String? _prefilledContent;
 
   CheckState  get state          => _state;
   CheckResult? get result        => _result;
   ImpactResult? get impactResult => _impactResult;
   ReportModel? get reportModel   => _reportModel;
   String?     get errorMessage   => _errorMessage;
+  String?     get prefilledContent => _prefilledContent;
+
+  void prefillContent(String content) {
+    _prefilledContent = content;
+    notifyListeners();
+  }
+
+  void clearPrefill() {
+    _prefilledContent = null;
+    notifyListeners();
+  }
 
   bool get isIdle        => _state == CheckState.idle;
   bool get isLoading     => _state == CheckState.loading;
@@ -73,6 +85,7 @@ class CheckProvider extends ChangeNotifier {
         SilentProfiler.instance.onCheckCompleted(checkResult.contentType),
         StreakService.instance.recordCheckCompleted(
           wasFake: checkResult.truthScore < 30,
+          truthScore: checkResult.truthScore,
         ),
       ]);
 

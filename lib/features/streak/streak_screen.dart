@@ -1,3 +1,4 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
@@ -68,6 +69,8 @@ class _StreakScreenState extends State<StreakScreen> {
                 RankProgressCard(streak: sp.streak),
                 const SizedBox(height: 20),
                 _buildStats(sp),
+                const SizedBox(height: 20),
+                _buildScoreHistoryChart(sp),
                 const SizedBox(height: 20),
                 _buildAchievements(sp),
                 const SizedBox(height: 20),
@@ -215,6 +218,104 @@ class _StreakScreenState extends State<StreakScreen> {
           begin: const Offset(0.9, 0.9)),
       )).toList(),
     );
+  }
+
+  Widget _buildScoreHistoryChart(StreakProvider sp) {
+    final scores = sp.recentScores;
+    if (scores.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    // Map scores to FlSpot
+    final spots = scores.asMap().entries.map((e) {
+      return FlSpot(e.key.toDouble(), e.value.toDouble());
+    }).toList();
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Text('📈', style: TextStyle(fontSize: 16)),
+              SizedBox(width: 8),
+              Text(
+                'TRUTH SCORE HISTORY',
+                style: TextStyle(
+                  color: AppColors.textMuted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            height: 140,
+            child: LineChart(
+              LineChartData(
+                gridData: const FlGridData(show: false),
+                titlesData: const FlTitlesData(
+                  leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                ),
+                borderData: FlBorderData(show: false),
+                minX: 0,
+                maxX: (scores.length - 1).toDouble(),
+                minY: 0,
+                maxY: 100,
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: spots,
+                    isCurved: true,
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF00D4FF), Color(0xFF7FFF00)],
+                    ),
+                    barWidth: 3,
+                    isStrokeCapRound: true,
+                    dotData: const FlDotData(show: true),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color(0xFF00D4FF).withValues(alpha: 0.2),
+                          const Color(0xFF7FFF00).withValues(alpha: 0.0),
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          const Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Older',
+                style: TextStyle(color: AppColors.textMuted, fontSize: 10),
+              ),
+              Text(
+                'Recent Check',
+                style: TextStyle(color: AppColors.accent, fontSize: 10, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ).animate().fadeIn(duration: 500.ms).slideY(begin: 0.1);
   }
 
   Widget _buildAchievements(StreakProvider sp) {

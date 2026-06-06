@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'core/constants/app_theme.dart';
 import 'core/providers/app_provider.dart';
@@ -11,6 +12,7 @@ import 'features/trust_feed/trust_feed_screen.dart';
 import 'features/trace_iq/trace_iq_screen.dart';
 import 'features/ask_iq/ask_iq_screen.dart';
 import 'features/streak/streak_screen.dart';
+import 'l10n/app_localizations.dart';
 
 class LensIQApp extends StatelessWidget {
   const LensIQApp({super.key});
@@ -24,11 +26,23 @@ class LensIQApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => NewsProvider()),
         ChangeNotifierProvider(create: (_) => StreakProvider()..initialize()),
       ],
-      child: MaterialApp(
-        title: 'LensIQ',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.dark,
-        home: const MainShell(),
+      child: Consumer<AppProvider>(
+        builder: (context, appProvider, child) {
+          return MaterialApp(
+            title: 'LensIQ',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.dark,
+            locale: appProvider.locale,
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: const MainShell(),
+          );
+        },
       ),
     );
   }

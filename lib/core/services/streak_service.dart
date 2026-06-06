@@ -16,6 +16,9 @@ class StreakService {
   StreakData _current = const StreakData();
   StreakData get current => _current;
 
+  List<int> _recentScores = [];
+  List<int> get recentScores => _recentScores;
+
   String? _anonymousId;
   String get anonymousId {
     _anonymousId ??= _loadOrCreateAnonymousId();
@@ -31,6 +34,10 @@ class StreakService {
         _current = StreakData.fromJson(
           jsonDecode(raw) as Map<String, dynamic>,
         );
+      }
+      final scoresRaw = box.get('recent_scores');
+      if (scoresRaw != null) {
+        _recentScores = List<int>.from(jsonDecode(scoresRaw) as List);
       }
     } catch (e) {
       debugPrint('StreakService init failed: $e');
@@ -87,11 +94,21 @@ class StreakService {
   }
 
   // ── RECORD CHECK COMPLETED ────────────────────────────────────────
-  Future<void> recordCheckCompleted({bool wasFake = false}) async {
+  Future<void> recordCheckCompleted({bool wasFake = false, int? truthScore}) async {
     _current = _current.copyWith(
       totalChecks: _current.totalChecks + 1,
       fakesCaught: wasFake ? _current.fakesCaught + 1 : null,
     );
+    if (truthScore != null) {
+      _recentScores.add(truthScore);
+      if (_recentScores.length > 7) {
+        _recentScores.removeAt(0);
+      }
+      try {
+        final box = Hive.box<String>(AppConstants.boxStreak);
+        await box.put('recent_scores', jsonEncode(_recentScores));
+      } catch (_) {}
+    }
     await _persist();
   }
 

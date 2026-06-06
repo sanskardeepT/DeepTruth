@@ -1,9 +1,9 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/models/news_item.dart';
+import 'news_detail_screen.dart';
 
 class NewsCard extends StatelessWidget {
   final NewsItem article;
@@ -14,7 +14,11 @@ class NewsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => _openArticle(article.url),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => NewsDetailScreen(article: article),
+        ),
+      ),
       child: Container(
         margin:  const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         decoration: BoxDecoration(
@@ -129,13 +133,6 @@ class NewsCard extends StatelessWidget {
         ),
       ).animate(delay: (index * 50).ms).fadeIn().slideY(begin: 0.1),
     );
-  }
-
-  Future<void> _openArticle(String url) async {
-    final uri = Uri.tryParse(url);
-    if (uri != null && await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
   }
 
   String _timeAgo(DateTime dt) {

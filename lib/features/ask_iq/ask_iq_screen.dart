@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/services/gemini_service.dart';
 import '../../widgets/ad_banner_widget.dart';
+import 'widgets/chat_bubble.dart';
 
 class _ChatMessage {
   final String text;
@@ -58,6 +58,7 @@ class _AskIQScreenState extends State<AskIQScreen> {
     if (text.isEmpty || _isLoading) return;
 
     _controller.clear();
+    if (!mounted) return;
     setState(() {
       _messages.add(_ChatMessage(text: text, isUser: true));
       _isLoading = true;
@@ -135,7 +136,13 @@ class _AskIQScreenState extends State<AskIQScreen> {
                 if (i == _messages.length) {
                   return _buildTypingIndicator();
                 }
-                return _ChatBubble(msg: _messages[i], index: i);
+                final msg = _messages[i];
+                return ChatBubble(
+                  text: msg.text,
+                  isUser: msg.isUser,
+                  sources: msg.sources,
+                  index: i,
+                );
               },
             ),
           ),
@@ -234,123 +241,7 @@ class _AskIQScreenState extends State<AskIQScreen> {
   }
 }
 
-class _ChatBubble extends StatelessWidget {
-  final _ChatMessage msg;
-  final int index;
 
-  const _ChatBubble({required this.msg, required this.index});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment: msg.isUser
-            ? CrossAxisAlignment.end
-            : CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: msg.isUser
-                ? MainAxisAlignment.end
-                : MainAxisAlignment.start,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              if (!msg.isUser) ...[
-                _AiAvatar(),
-                const SizedBox(width: 8),
-              ],
-              Flexible(
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: msg.isUser
-                        ? AppColors.accent.withValues(alpha: 0.15)
-                        : AppColors.bgCard,
-                    borderRadius: BorderRadius.only(
-                      topLeft:     const Radius.circular(16),
-                      topRight:    const Radius.circular(16),
-                      bottomLeft:  Radius.circular(msg.isUser ? 16 : 4),
-                      bottomRight: Radius.circular(msg.isUser ? 4 : 16),
-                    ),
-                    border: Border.all(
-                      color: msg.isUser
-                          ? AppColors.accent.withValues(alpha: 0.3)
-                          : AppColors.divider,
-                    ),
-                  ),
-                  child: Text(
-                    msg.text,
-                    style: const TextStyle(
-                      color:   AppColors.textPrimary,
-                      fontSize:13,
-                      height:  1.5,
-                    ),
-                  ),
-                ),
-              ),
-              if (msg.isUser) ...[
-                const SizedBox(width: 8),
-                const CircleAvatar(
-                  radius: 14,
-                  backgroundColor: AppColors.accent,
-                  child: Icon(Icons.person_rounded,
-                      color: AppColors.primary, size: 16),
-                ),
-              ],
-            ],
-          ),
-          // Sources
-          if (!msg.isUser && msg.sources.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Padding(
-              padding: const EdgeInsets.only(left: 44),
-              child: Wrap(
-                spacing:    4,
-                runSpacing: 4,
-                children: msg.sources.take(3).map((s) => _SourceChip(source: s)).toList(),
-              ),
-            ),
-          ],
-        ],
-      ),
-    ).animate(delay: (index * 30).ms).fadeIn().slideY(begin: 0.1);
-  }
-}
-
-class _SourceChip extends StatelessWidget {
-  final String source;
-  const _SourceChip({required this.source});
-
-  @override
-  Widget build(BuildContext context) {
-    final isUrl = source.startsWith('http');
-    return GestureDetector(
-      onTap: isUrl ? () async {
-        final uri = Uri.tryParse(source);
-        if (uri != null) await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } : null,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color:        AppColors.accent.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(6),
-          border:       Border.all(color: AppColors.accent.withValues(alpha: 0.2)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.link_rounded, color: AppColors.accent, size: 10),
-            const SizedBox(width: 3),
-            Text(
-              source.length > 40 ? '${source.substring(0, 40)}…' : source,
-              style: const TextStyle(color: AppColors.accent, fontSize: 10),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _AiAvatar extends StatelessWidget {
   @override

@@ -6,30 +6,71 @@ import '../../../core/constants/app_strings.dart';
 
 class CheckInputBox extends StatefulWidget {
   final void Function(String) onSubmit;
+  final TextEditingController? controller;
 
-  const CheckInputBox({super.key, required this.onSubmit});
+  const CheckInputBox({
+    super.key,
+    required this.onSubmit,
+    this.controller,
+  });
 
   @override
   State<CheckInputBox> createState() => _CheckInputBoxState();
 }
 
 class _CheckInputBoxState extends State<CheckInputBox> {
-  final _controller = TextEditingController();
+  late final TextEditingController _controller;
   final _focusNode  = FocusNode();
   bool _hasText = false;
+  bool _isLocalController = false;
 
   @override
   void initState() {
     super.initState();
-    _controller.addListener(() {
-      final has = _controller.text.trim().isNotEmpty;
-      if (has != _hasText) setState(() => _hasText = has);
-    });
+    if (widget.controller != null) {
+      _controller = widget.controller!;
+      _isLocalController = false;
+    } else {
+      _controller = TextEditingController();
+      _isLocalController = true;
+    }
+    _hasText = _controller.text.trim().isNotEmpty;
+    _controller.addListener(_onControllerChange);
+  }
+
+  void _onControllerChange() {
+    final has = _controller.text.trim().isNotEmpty;
+    if (has != _hasText) {
+      if (mounted) setState(() => _hasText = has);
+    }
+  }
+
+  @override
+  void didUpdateWidget(CheckInputBox oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.controller != oldWidget.controller) {
+      _controller.removeListener(_onControllerChange);
+      if (_isLocalController) {
+        _controller.dispose();
+      }
+      if (widget.controller != null) {
+        _controller = widget.controller!;
+        _isLocalController = false;
+      } else {
+        _controller = TextEditingController();
+        _isLocalController = true;
+      }
+      _hasText = _controller.text.trim().isNotEmpty;
+      _controller.addListener(_onControllerChange);
+    }
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller.removeListener(_onControllerChange);
+    if (_isLocalController) {
+      _controller.dispose();
+    }
     _focusNode.dispose();
     super.dispose();
   }

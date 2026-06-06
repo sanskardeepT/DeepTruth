@@ -1,0 +1,84 @@
+{
+  "@@locale": "hi",
+  "appName": "LensIQ",
+  "tagline": "सच्चाई देखें",
+  "factCheckTitle": "ट्रूथ लेंस",
+  "factCheckHint": "खबर, दावा, लिंक या रील URL पेस्ट करें...",
+  "analyzeButton": "विश्लेषण करें",
+  "analyzing": "विश्लेषण हो रहा है...",
+
+  "verdictTrue": "सच",
+  "verdictFalse": "झूठ",
+  "verdictMisleading": "भ्रामक",
+  "verdictUnverified": "अज्ञात",
+
+  "truthScore": "सत्य स्कोर",
+  "manipulationScore": "हेरफेर स्कोर",
+  "missingContext": "छूटा हुआ संदर्भ",
+  "sources": "स्रोत",
+  "manipulationTactics": "हेरफेर की रणनीतियाँ",
+  "personalImpact": "आप पर असर",
+  "downloadReport": "रिपोर्ट डाउनलोड करें",
+  "shareReport": "रिपोर्ट शेयर करें",
+
+  "trustFeed": "ट्रस्ट फ़ीड",
+  "reelIQ": "रील IQ",
+  "traceIQ": "ट्रेस IQ",
+  "askIQ": "आस्क IQ",
+  "streak": "स्ट्रीक",
+  "home": "होम",
+
+  "streakDays": "{count} दिन की स्ट्रीक",
+  "@streakDays": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "rank": "रैंक",
+  "nextRank": "{days} दिनों में अगला रैंक",
+  "@nextRank": {
+    "placeholders": { "days": { "type": "int" } }
+  },
+
+  "emailCheck": "ईमेल उल्लंघन जांच",
+  "phoneCheck": "फोन लुकअप",
+  "usernameCheck": "यूज़रनेम खोज",
+  "websiteCheck": "वेबसाइट WHOIS",
+  "ipCheck": "IP लुकअप",
+  "imageSearch": "रिवर्स इमेज सर्च",
+  "osintDisclaimer": "केवल सार्वजनिक स्रोतों से डेटा। परिणाम अधूरे हो सकते हैं।",
+  "investigateYourself": "पहले खुद को जांचें",
+
+  "typeMessage": "कुछ भी पूछें...",
+  "sources2": "स्रोत",
+  "relatedFacts": "संबंधित तथ्य",
+
+  "noInternet": "कनेक्शन नहीं है",
+  "tryAgain": "फिर कोशिश करें",
+  "loading": "लोड हो रहा है...",
+  "error": "कुछ गलत हुआ",
+  "errorRetry": "कुछ गलत हुआ। नीचे खींचें।",
+
+  "dailyReality": "आज की रियलिटी चेक",
+  "trendingChecks": "ट्रेंडिंग चेक्स",
+  "quickActions": "त्वरित क्रियाएं",
+  "checkNews": "खबर चेक करें",
+  "checkReel": "रील/वीडियो चेक करें",
+  "checkWebsite": "वेबसाइट सत्यापित करें",
+
+  "reportId": "रिपोर्ट ID",
+  "generatedBy": "LensIQ द्वारा निर्मित",
+  "dataOnly": "केवल डेटा। निष्कर्ष आपका अपना।",
+  "scanToVerify": "इस रिपोर्ट की प्रामाणिकता सत्यापित करने के लिए स्कैन करें",
+
+  "osintRateLimit": "दैनिक सीमा पहुंच गई ({limit} लुकअप/दिन)। कल रीसेट होगा।",
+  "@osintRateLimit": {
+    "placeholders": { "limit": { "type": "int" } }
+  },
+  "analysisUnavailable": "विश्लेषण अस्थायी रूप से अनुपलब्ध है। पुनः प्रयास करें।",
+  "offlineMode": "ऑफलाइन — कैश डेटा दिख रहा है",
+
+  "leaderboard": "लीडरबोर्ड",
+  "globalRanking": "वैश्विक रैंकिंग",
+  "streakFreezeUsed": "इस महीने स्ट्रीक फ्रीज़ इस्तेमाल हो गया",
+  "streakFreeze": "स्ट्रीक फ्रीज़ का उपयोग करें",
+  "achievements": "उपलब्धियां"
+}
