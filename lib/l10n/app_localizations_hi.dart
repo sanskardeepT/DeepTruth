@@ -9,7 +9,7 @@ class AppLocalizationsHi extends AppLocalizations {
   AppLocalizationsHi([String locale = 'hi']) : super(locale);
 
   @override
-  String get appName => 'LensIQ';
+  String get appName => 'DeepTruth';
 
   @override
   String get tagline => 'सच्चाई देखें';
@@ -163,7 +163,7 @@ class AppLocalizationsHi extends AppLocalizations {
   String get reportId => 'रिपोर्ट ID';
 
   @override
-  String get generatedBy => 'LensIQ द्वारा निर्मित';
+  String get generatedBy => 'DeepTruth द्वारा निर्मित';
 
   @override
   String get dataOnly => 'केवल डेटा। निष्कर्ष आपका अपना।';

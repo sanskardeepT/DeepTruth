@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Lensiq</string>
+	<string>DeepTruth</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>lensiq</string>
+	<string>deeptruth</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -66,15 +66,15 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<!-- ── LENSIQ PERMISSIONS ───────────────────────────────────── -->
+	<!-- ── DEEPTRUTH PERMISSIONS ───────────────────────────────────── -->
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>LensIQ uses your location to show you relevant local news and fact-checks.</string>
+	<string>DeepTruth uses your location to show you relevant local news and fact-checks.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>LensIQ needs photo access for reverse image search and OSINT verification.</string>
+	<string>DeepTruth needs photo access for reverse image search and OSINT verification.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>LensIQ needs camera access to scan content for fact-checking.</string>
+	<string>DeepTruth needs camera access to scan content for fact-checking.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>LensIQ may use microphone for voice-based fact-check queries.</string>
+	<string>DeepTruth may use microphone for voice-based fact-check queries.</string>
 	<!-- AdMob — REPLACE WITH YOUR REAL APP ID BEFORE PUBLISHING -->
 	<key>GADApplicationIdentifier</key>
 	<string>ca-app-pub-3940256099942544~3347511713</string>

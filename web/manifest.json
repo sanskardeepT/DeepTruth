@@ -1,11 +1,11 @@
 {
-    "name": "lensiq",
-    "short_name": "lensiq",
+    "name": "DeepTruth",
+    "short_name": "DeepTruth",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "DeepTruth - In a world of lies, let DeepTruth be your eyes.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

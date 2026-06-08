@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 import 'package:provider/provider.dart';
-import 'package:lensiq/app.dart';
-import 'package:lensiq/core/providers/app_provider.dart';
-import 'package:lensiq/core/providers/check_provider.dart';
-import 'package:lensiq/core/providers/news_provider.dart';
-import 'package:lensiq/core/providers/streak_provider.dart';
-import 'package:lensiq/core/models/news_item.dart';
-import 'package:lensiq/core/constants/app_constants.dart';
+import 'package:deeptruth/app.dart';
+import 'package:deeptruth/core/providers/app_provider.dart';
+import 'package:deeptruth/core/providers/check_provider.dart';
+import 'package:deeptruth/core/providers/news_provider.dart';
+import 'package:deeptruth/core/providers/streak_provider.dart';
+import 'package:deeptruth/core/models/news_item.dart';
+import 'package:deeptruth/core/constants/app_constants.dart';
 
 class TestNewsProvider extends NewsProvider {
   @override
@@ -35,7 +35,7 @@ class TestNewsProvider extends NewsProvider {
 
 void main() {
   setUp(() async {
-    final tempDir = await Directory.systemTemp.createTemp('lensiq_test_hive');
+    final tempDir = await Directory.systemTemp.createTemp('deeptruth_test_hive');
     Hive.init(tempDir.path);
     await Future.wait([
       Hive.openBox<String>(AppConstants.boxNews),
@@ -51,7 +51,7 @@ void main() {
     await Hive.close();
   });
 
-  testWidgets('LensIQApp builds and shows Home screen', (WidgetTester tester) async {
+  testWidgets('DeepTruthApp builds and shows Home screen', (WidgetTester tester) async {
     await tester.pumpWidget(
       MultiProvider(
         providers: [

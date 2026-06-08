@@ -6,10 +6,12 @@ class CheckResult {
   final String? missingContext;
   final List<String> sources;
   final List<String> manipulationTactics;
+  final List<String> logicalFallacies;
   final int manipulationScore;
   final String contentType;
   final DateTime analyzedAt;
   final String reportId;
+  final String? imagePath;
 
   const CheckResult({
     required this.originalContent,
@@ -19,10 +21,12 @@ class CheckResult {
     this.missingContext,
     this.sources = const [],
     this.manipulationTactics = const [],
+    this.logicalFallacies = const [],
     required this.manipulationScore,
     required this.contentType,
     required this.analyzedAt,
     required this.reportId,
+    this.imagePath,
   });
 
   factory CheckResult.fromJson(Map<String, dynamic> json) {
@@ -34,10 +38,12 @@ class CheckResult {
       missingContext:      json['missingContext']     as String?,
       sources:             (json['sources'] as List?)?.map((e) => e?.toString() ?? '').toList() ?? const [],
       manipulationTactics: (json['manipulationTactics'] as List?)?.map((e) => e?.toString() ?? '').toList() ?? const [],
+      logicalFallacies:    (json['logicalFallacies'] as List?)?.map((e) => e?.toString() ?? '').toList() ?? const [],
       manipulationScore:   (json['manipulationScore'] as num?)?.toInt() ?? 0,
       contentType:         json['contentType']        as String? ?? 'unknown',
       analyzedAt:          DateTime.tryParse(json['analyzedAt']?.toString() ?? '') ?? DateTime.now(),
-      reportId:            json['reportId']           as String? ?? 'LIQ-UNKNOWN',
+      reportId:            json['reportId']           as String? ?? 'DT-UNKNOWN',
+      imagePath:           json['imagePath']          as String?,
     );
   }
 
@@ -49,10 +55,12 @@ class CheckResult {
     'missingContext':     missingContext,
     'sources':            sources,
     'manipulationTactics':manipulationTactics,
+    'logicalFallacies':   logicalFallacies,
     'manipulationScore':  manipulationScore,
     'contentType':        contentType,
     'analyzedAt':         analyzedAt.toIso8601String(),
     'reportId':           reportId,
+    'imagePath':          imagePath,
   };
 
   String get verdictEmoji {

@@ -1,8 +1,8 @@
-# pubspec.yaml — LensIQ v1.0.0 — EXACT PINNED VERSIONS
+# pubspec.yaml — DeepTruth v1.0.0 — EXACT PINNED VERSIONS
 # Rule: No ^ on Firebase/AdMob/Hive. No exceptions.
 
-name: lensiq
-description: LensIQ - See Through Everything
+name: deeptruth
+description: DeepTruth - In a world of lies, let DeepTruth be your eyes.
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -102,4 +102,5 @@ flutter:
 
 dependency_overrides:
   intl: 0.19.0
+  cloud_firestore_platform_interface: 6.1.8
 

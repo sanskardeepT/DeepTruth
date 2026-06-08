@@ -1,9 +1,9 @@
 class AppStrings {
   AppStrings._();
 
-  static const String appName    = 'LensIQ';
-  static const String tagline    = 'Iss duniya mein koi kisi par bharosa nahi kar sakta. LensIQ par kar.';
-  static const String taglineEn  = 'In this world no one can be trusted. Trust LensIQ.';
+  static const String appName    = 'DeepTruth';
+  static const String tagline    = 'Jhoot ki duniya mein, DeepTruth teri aankh hai.';
+  static const String taglineEn  = 'In a world of lies, let DeepTruth be your eyes.';
 
   // ── NAV LABELS ──
   static const String navHome      = 'Home';

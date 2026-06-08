@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import '../models/check_result.dart';
 import '../models/impact_result.dart';
@@ -43,7 +45,7 @@ class CheckProvider extends ChangeNotifier {
   bool get isError       => _state == CheckState.error;
 
   // ── ANALYZE ───────────────────────────────────────────────────────
-  Future<void> analyze(String content) async {
+  Future<void> analyze(String content, {String? imagePath}) async {
     if (content.trim().isEmpty) {
       _errorMessage = 'Please enter some content to analyze.';
       _state = CheckState.error;
@@ -58,9 +60,31 @@ class CheckProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      Uint8List? imageBytes;
+      String? mimeType;
+      if (imagePath != null) {
+        final file = File(imagePath);
+        if (await file.exists()) {
+          imageBytes = await file.readAsBytes();
+          final ext = imagePath.split('.').last.toLowerCase();
+          if (ext == 'png') {
+            mimeType = 'image/png';
+          } else if (ext == 'webp') {
+            mimeType = 'image/webp';
+          } else {
+            mimeType = 'image/jpeg';
+          }
+        }
+      }
+
       // Run Gemini + FactCheck API in parallel
       final results = await Future.wait([
-        GeminiService.instance.factCheck(content),
+        GeminiService.instance.factCheck(
+          content,
+          imageBytes: imageBytes,
+          mimeType: mimeType,
+          localImagePath: imagePath,
+        ),
         FactCheckService.instance.search(content),
       ]);
 

@@ -14,8 +14,8 @@ import 'features/ask_iq/ask_iq_screen.dart';
 import 'features/streak/streak_screen.dart';
 import 'l10n/app_localizations.dart';
 
-class LensIQApp extends StatelessWidget {
-  const LensIQApp({super.key});
+class DeepTruthApp extends StatelessWidget {
+  const DeepTruthApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +29,7 @@ class LensIQApp extends StatelessWidget {
       child: Consumer<AppProvider>(
         builder: (context, appProvider, child) {
           return MaterialApp(
-            title: 'LensIQ',
+            title: 'DeepTruth',
             debugShowCheckedModeBanner: false,
             theme: AppTheme.dark,
             locale: appProvider.locale,

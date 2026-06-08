@@ -1,6 +1,6 @@
 {
   "@@locale": "hi",
-  "appName": "LensIQ",
+  "appName": "DeepTruth",
   "tagline": "सच्चाई देखें",
   "factCheckTitle": "ट्रूथ लेंस",
   "factCheckHint": "खबर, दावा, लिंक या रील URL पेस्ट करें...",
@@ -65,7 +65,7 @@
   "checkWebsite": "वेबसाइट सत्यापित करें",
 
   "reportId": "रिपोर्ट ID",
-  "generatedBy": "LensIQ द्वारा निर्मित",
+  "generatedBy": "DeepTruth द्वारा निर्मित",
   "dataOnly": "केवल डेटा। निष्कर्ष आपका अपना।",
   "scanToVerify": "इस रिपोर्ट की प्रामाणिकता सत्यापित करने के लिए स्कैन करें",
 

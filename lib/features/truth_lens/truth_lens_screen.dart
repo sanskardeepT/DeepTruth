@@ -76,7 +76,7 @@ class _TruthLensScreenState extends State<TruthLensScreen> {
             const SizedBox(height: 24),
             CheckInputBox(
               controller: _textController,
-              onSubmit: (text) => cp.analyze(text),
+              onSubmit: (text, imagePath) => cp.analyze(text, imagePath: imagePath),
             ),
             const SizedBox(height: 24),
             _buildTips(),

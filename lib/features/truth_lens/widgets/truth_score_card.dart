@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -71,6 +72,18 @@ class TruthScoreCard extends StatelessWidget {
               ),
             ],
           ),
+          if (result.imagePath != null) ...[
+            const SizedBox(height: 16),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.file(
+                File(result.imagePath!),
+                height: 180,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           // Explanation
           Text(
@@ -108,6 +121,46 @@ class TruthScoreCard extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+          ],
+          // Logical fallacies
+          if (result.logicalFallacies.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.gavel_rounded, color: AppColors.warning, size: 14),
+                    SizedBox(width: 4),
+                    Text(
+                      'Logical Fallacies / Bias Detected',
+                      style: TextStyle(
+                        color:      AppColors.warning,
+                        fontSize:   11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing:    6,
+                  runSpacing: 4,
+                  children: result.logicalFallacies.map((f) => Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color:        AppColors.warning.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border:       Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
+                    ),
+                    child: Text(
+                      f,
+                      style: const TextStyle(color: AppColors.warning, fontSize: 11),
+                    ),
+                  )).toList(),
+                ),
+              ],
             ),
           ],
           // Manipulation tactics

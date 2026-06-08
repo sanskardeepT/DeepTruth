@@ -1,9 +1,14 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:image/image.dart' as img;
 import '../constants/api_keys.dart';
 import '../constants/app_constants.dart';
 import '../models/osint_result.dart';
+import 'gemini_service.dart';
 
 class OsintService {
   OsintService._();
@@ -54,7 +59,7 @@ class OsintService {
         options: Options(
           headers: {
             'hibp-api-key':   ApiKeys.hibp,
-            'user-agent':     'LensIQ-App',
+            'user-agent':     'DeepTruth-App',
             'Accept':         'application/json',
           },
           validateStatus: (status) => status == 200 || status == 404,
@@ -175,7 +180,7 @@ class OsintService {
       final rdRes = await _dio.get(
         'https://www.reddit.com/user/$username/about.json',
         options: Options(
-          headers: {'User-Agent': 'LensIQ/1.0'},
+          headers: {'User-Agent': 'DeepTruth/1.0'},
           validateStatus: (status) => status == 200 || status == 404,
         ),
       );
@@ -300,5 +305,144 @@ class OsintService {
       riskLevel:  'low',
       analyzedAt: DateTime.now(),
     );
+  }
+
+  // ── IMAGE METADATA FORENSICS ──────────────────────────────────────
+  Future<OsintResult> analyzeImageMetadata(String filePath) async {
+    if (!_canQuery(OsintQueryType.image)) {
+      return OsintResult.error(
+        OsintQueryType.image, filePath,
+        'Daily limit reached. Reset tomorrow.',
+      );
+    }
+    _incrementCount(OsintQueryType.image);
+
+    try {
+      final file = File(filePath);
+      if (!await file.exists()) {
+        return OsintResult.error(OsintQueryType.image, filePath, 'File does not exist.');
+      }
+      final bytes = await file.readAsBytes();
+
+      // Decode image to check dimensions
+      final image = img.decodeImage(bytes);
+      final findings = <OsintFinding>[];
+      findings.add(OsintFinding(label: 'File Name', value: filePath.split(Platform.pathSeparator).last));
+      findings.add(OsintFinding(label: 'File Size', value: '${(bytes.length / 1024).toStringAsFixed(1)} KB'));
+
+      if (image != null) {
+        findings.add(OsintFinding(label: 'Resolution', value: '${image.width} x ${image.height} px'));
+        findings.add(OsintFinding(label: 'Aspect Ratio', value: (image.width / image.height).toStringAsFixed(2)));
+      }
+
+      // Read EXIF tags from image package
+      String? cameraMake;
+      String? cameraModel;
+      String? software;
+      String? dateTime;
+      String? gpsInfo;
+
+      if (image != null && image.exif != null) {
+        final exif = image.exif;
+        if (exif.imageIfd.containsKey(0x010f)) {
+          cameraMake = exif.imageIfd[0x010f]?.toString();
+        }
+        if (exif.imageIfd.containsKey(0x0110)) {
+          cameraModel = exif.imageIfd[0x0110]?.toString();
+        }
+        if (exif.imageIfd.containsKey(0x0131)) {
+          software = exif.imageIfd[0x0131]?.toString();
+        }
+        if (exif.imageIfd.containsKey(0x0132)) {
+          dateTime = exif.imageIfd[0x0132]?.toString();
+        }
+        if (!exif.gpsIfd.isEmpty) {
+          gpsInfo = 'GPS Coordinates present 📍';
+        }
+      }
+
+      findings.add(OsintFinding(label: 'Camera Make', value: cameraMake ?? 'Unknown / Stripped'));
+      findings.add(OsintFinding(label: 'Camera Model', value: cameraModel ?? 'Unknown / Stripped'));
+      findings.add(OsintFinding(label: 'Software Header', value: software ?? 'None Detected (Original/Clean)'));
+      findings.add(OsintFinding(label: 'Creation Date', value: dateTime ?? 'Unknown / Stripped'));
+      if (gpsInfo != null) {
+        findings.add(OsintFinding(label: 'GPS Metadata', value: gpsInfo));
+      }
+
+      // Gemini prompt for forensics
+      final prompt = '''
+You are a digital forensics and image OSINT analyst. Analyze the following image metadata and the visual content of the image to check if it has been manipulated, edited, or fabricated.
+
+Metadata found:
+- File Name: ${filePath.split(Platform.pathSeparator).last}
+- File Size: ${(bytes.length / 1024).toStringAsFixed(1)} KB
+- Resolution: ${image != null ? "${image.width} x ${image.height}" : "Unknown"}
+- Camera Make: ${cameraMake ?? "Unknown"}
+- Camera Model: ${cameraModel ?? "Unknown"}
+- Software/Editing Tool: ${software ?? "None"}
+- Date Taken: ${dateTime ?? "Unknown"}
+- GPS Data: ${gpsInfo ?? "None"}
+
+Please evaluate:
+1. Is there any editing software header (like Adobe Photoshop, Canva, GIMP, Pixelmator)?
+2. Is the creation date inconsistent or missing?
+3. What is the likelihood that this image was edited, compressed multiple times, or AI-generated?
+
+Return ONLY a valid JSON object:
+{
+  "forensicVerdict": "<MINIMAL_EDITING|HEAVILY_EDITED|AI_GENERATED|ORIGINAL_UNCUT|SUSPICIOUS_METADATA>",
+  "riskLevel": "<low|medium|high>",
+  "analysisSummary": "<2-3 sentences explaining your findings>",
+  "anomalyScore": <integer 0-100>
+}
+''';
+
+      String analysisSummary = 'AI Forensic analysis is unavailable.';
+      String riskLevel = 'low';
+      String forensicVerdict = 'SUSPICIOUS_METADATA';
+      int anomalyScore = 50;
+
+      if (GeminiService.instance.isInitialized) {
+        try {
+          final model = GenerativeModel(
+            model: 'gemini-1.5-flash',
+            apiKey: ApiKeys.gemini,
+          );
+          final response = await model.generateContent([
+            Content.multi([
+              TextPart(prompt),
+              DataPart('image/jpeg', bytes),
+            ])
+          ]).timeout(const Duration(seconds: 25));
+
+          final text = response.text;
+          if (text != null && text.isNotEmpty) {
+            final json = jsonDecode(text.replaceAll('```json', '').replaceAll('```', '').trim()) as Map<String, dynamic>;
+            forensicVerdict = json['forensicVerdict'] as String? ?? 'SUSPICIOUS_METADATA';
+            riskLevel = json['riskLevel'] as String? ?? 'medium';
+            analysisSummary = json['analysisSummary'] as String? ?? 'Analysis completed.';
+            anomalyScore = (json['anomalyScore'] as num?)?.toInt() ?? 50;
+          }
+        } catch (e) {
+          debugPrint('Gemini EXIF forensics failed: $e');
+        }
+      }
+
+      findings.add(OsintFinding(label: 'Forensic Verdict', value: forensicVerdict));
+      findings.add(OsintFinding(label: 'Anomaly Score', value: '$anomalyScore/100'));
+      findings.add(OsintFinding(label: 'AI Forensic Summary', value: analysisSummary));
+
+      return OsintResult(
+        queryType:  OsintQueryType.image,
+        query:      filePath,
+        findings:   findings,
+        sources:    const ['On-device EXIF parser', 'DeepTruth AI Visual Forensics'],
+        riskLevel:  riskLevel,
+        analyzedAt: DateTime.now(),
+      );
+    } catch (e) {
+      debugPrint('analyzeImageMetadata failed: $e');
+      return OsintResult.error(OsintQueryType.image, filePath, 'Forensic lookup failed: $e');
+    }
   }
 }

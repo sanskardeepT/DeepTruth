@@ -1,11 +1,13 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 
 class CheckInputBox extends StatefulWidget {
-  final void Function(String) onSubmit;
+  final void Function(String text, String? imagePath) onSubmit;
   final TextEditingController? controller;
 
   const CheckInputBox({
@@ -23,6 +25,7 @@ class _CheckInputBoxState extends State<CheckInputBox> {
   final _focusNode  = FocusNode();
   bool _hasText = false;
   bool _isLocalController = false;
+  String? _selectedImagePath;
 
   @override
   void initState() {
@@ -76,10 +79,13 @@ class _CheckInputBoxState extends State<CheckInputBox> {
   }
 
   void _submit() {
-    final text = _controller.text.trim();
+    var text = _controller.text.trim();
+    if (text.isEmpty && _selectedImagePath != null) {
+      text = "Verification analysis of the attached image claim.";
+    }
     if (text.isEmpty) return;
     _focusNode.unfocus();
-    widget.onSubmit(text);
+    widget.onSubmit(text, _selectedImagePath);
   }
 
   Future<void> _paste() async {
@@ -88,6 +94,24 @@ class _CheckInputBoxState extends State<CheckInputBox> {
       _controller.text = data!.text!;
     }
   }
+
+  Future<void> _pickImage() async {
+    try {
+      final picker = ImagePicker();
+      final image = await picker.pickImage(source: ImageSource.gallery);
+      if (image != null) {
+        if (mounted) {
+          setState(() {
+            _selectedImagePath = image.path;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error picking image: $e');
+    }
+  }
+
+  bool get _canSubmit => _hasText || _selectedImagePath != null;
 
   @override
   Widget build(BuildContext context) {
@@ -133,6 +157,61 @@ class _CheckInputBoxState extends State<CheckInputBox> {
                   if (mounted) setState(() {});
                 },
               ),
+              if (_selectedImagePath != null) ...[
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.divider),
+                  ),
+                  child: Row(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.file(
+                          File(_selectedImagePath!),
+                          width: 44,
+                          height: 44,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Attached Image',
+                              style: TextStyle(
+                                color: AppColors.textPrimary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              _selectedImagePath!.split(Platform.pathSeparator).last,
+                              style: const TextStyle(
+                                color: AppColors.textMuted,
+                                fontSize: 10,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline_rounded, color: AppColors.danger, size: 20),
+                        onPressed: () {
+                          if (mounted) setState(() => _selectedImagePath = null);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               Container(
                 height: 1,
                 color:  AppColors.divider,
@@ -150,7 +229,16 @@ class _CheckInputBoxState extends State<CheckInputBox> {
                         padding: const EdgeInsets.symmetric(horizontal: 8),
                       ),
                     ),
-                    if (_hasText)
+                    TextButton.icon(
+                      onPressed: _pickImage,
+                      icon:  const Icon(Icons.image_search_rounded, size: 16),
+                      label: Text(_selectedImagePath == null ? 'Screenshot' : 'Change Image'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: _selectedImagePath == null ? AppColors.textMuted : AppColors.accent,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                      ),
+                    ),
+                    if (_controller.text.isNotEmpty)
                       TextButton.icon(
                         onPressed: () {
                           _controller.clear();
@@ -179,13 +267,13 @@ class _CheckInputBoxState extends State<CheckInputBox> {
         ),
         const SizedBox(height: 14),
         AnimatedOpacity(
-          opacity: _hasText ? 1.0 : 0.4,
+          opacity: _canSubmit ? 1.0 : 0.4,
           duration: const Duration(milliseconds: 200),
           child: SizedBox(
             width:  double.infinity,
             height: 52,
             child: ElevatedButton(
-              onPressed: _hasText ? _submit : null,
+              onPressed: _canSubmit ? _submit : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.accent,
                 foregroundColor: AppColors.primary,

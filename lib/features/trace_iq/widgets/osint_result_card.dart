@@ -86,7 +86,7 @@ class OsintResultCard extends StatelessWidget {
           ],
           const SizedBox(height: 10),
           const Text(
-            'Data from public sources only. LensIQ does not store this information.',
+            'Data from public sources only. DeepTruth does not store this information.',
             style: TextStyle(color: AppColors.textMuted, fontSize: 10, fontStyle: FontStyle.italic),
           ),
         ],
@@ -135,6 +135,7 @@ class OsintResultCard extends StatelessWidget {
       case OsintQueryType.username: return Icons.alternate_email;
       case OsintQueryType.ip:       return Icons.router_rounded;
       case OsintQueryType.website:  return Icons.language_rounded;
+      case OsintQueryType.image:    return Icons.image_search_rounded;
       default:                      return Icons.search_rounded;
     }
   }

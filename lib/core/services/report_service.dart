@@ -32,7 +32,7 @@ class ReportService {
 
       await Share.shareXFiles(
         [XFile(file.path)],
-        subject: 'LensIQ Verified Intelligence Report — ${report.reportId}',
+        subject: 'DeepTruth Verified Intelligence Report — ${report.reportId}',
       );
 
       return updatedReport;

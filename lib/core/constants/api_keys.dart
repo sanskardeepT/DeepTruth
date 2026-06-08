@@ -1,21 +1,37 @@
-// lib/core/constants/api_keys.dart
+// lib/core/constants/api_keys.dart — DeepTruth API Configuration
 // IMPORTANT: Add this file to .gitignore before committing
+
+import 'package:hive/hive.dart';
+import 'app_constants.dart';
 
 class ApiKeys {
   ApiKeys._();
 
+  static String _getKey(String name, String defaultValue) {
+    try {
+      if (Hive.isBoxOpen(AppConstants.boxSettings)) {
+        final box = Hive.box<String>(AppConstants.boxSettings);
+        final val = box.get('custom_key_$name');
+        if (val != null && val.trim().isNotEmpty && !val.contains('YOUR_')) {
+          return val.trim();
+        }
+      }
+    } catch (_) {}
+    return defaultValue;
+  }
+
   // ── GEMINI AI ─────────────────────────────────────────
-  static const String gemini = 'YOUR_GEMINI_API_KEY';
+  static String get gemini => _getKey('gemini', 'YOUR_GEMINI_API_KEY');
 
   // ── NEWS ──────────────────────────────────────────────
-  static const String newsApi = 'YOUR_NEWS_API_KEY';
-  static const String gNews  = 'YOUR_GNEWS_API_KEY';
+  static String get newsApi => _getKey('news_api', 'YOUR_NEWS_API_KEY');
+  static String get gNews  => _getKey('g_news', 'YOUR_GNEWS_API_KEY');
 
   // ── FACT CHECK ────────────────────────────────────────
-  static const String googleFactCheck = 'YOUR_FACT_CHECK_API_KEY';
+  static String get googleFactCheck => _getKey('google_fact_check', 'YOUR_FACT_CHECK_API_KEY');
 
   // ── OSINT ─────────────────────────────────────────────
-  static const String hibp = 'YOUR_HIBP_API_KEY';
+  static String get hibp => _getKey('hibp', 'YOUR_HIBP_API_KEY');
 
   // ── ADMOB ─────────────────────────────────────────────
   static const String _testAppId          = 'ca-app-pub-3940256099942544~3347511713';

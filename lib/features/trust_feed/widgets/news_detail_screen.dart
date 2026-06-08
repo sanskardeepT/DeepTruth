@@ -57,7 +57,7 @@ class NewsDetailScreen extends StatelessWidget {
         IconButton(
           icon: const Icon(Icons.share_rounded, color: AppColors.textSecondary),
           onPressed: () => Share.share(
-            '${article.title}\n\n${article.url}\n\nVerified by LensIQ',
+            '${article.title}\n\n${article.url}\n\nVerified by DeepTruth',
           ),
         ),
         IconButton(

@@ -12,6 +12,8 @@ class GeminiService {
   GenerativeModel? _model;
   bool _initialized = false;
 
+  bool get isInitialized => _initialized && _model != null;
+
   void initialize() {
     try {
       _model = GenerativeModel(
@@ -29,12 +31,17 @@ class GeminiService {
   }
 
   // ── FACT CHECK ───────────────────────────────────────────────────
-  Future<CheckResult> factCheck(String content) async {
-    final reportId = 'LIQ-${DateTime.now().millisecondsSinceEpoch}-${_randomSuffix()}';
-    if (!_initialized || _model == null) return _fallbackCheckResult(content, reportId);
+  Future<CheckResult> factCheck(
+    String content, {
+    Uint8List? imageBytes,
+    String? mimeType,
+    String? localImagePath,
+  }) async {
+    final reportId = 'DT-${DateTime.now().millisecondsSinceEpoch}-${_randomSuffix()}';
+    if (!_initialized || _model == null) return _fallbackCheckResult(content, reportId, localImagePath);
 
     const systemPrompt = '''
-You are a strict fact-checking AI. Analyze the given content and return ONLY a valid JSON object.
+You are a strict fact-checking AI. Analyze the given content and any attached image or screenshot, and return ONLY a valid JSON object.
 No preamble, no explanation outside JSON, no markdown fences.
 
 JSON structure required:
@@ -45,6 +52,7 @@ JSON structure required:
   "missingContext": "<important context omitted, or null>",
   "sources": ["<source name + URL>"],
   "manipulationTactics": ["<tactic name>"],
+  "logicalFallacies": ["<fallacy or propaganda tactic name, or empty list>"],
   "manipulationScore": <integer 0-100>,
   "contentType": "<news|reel|link|post|statement|unknown>"
 }
@@ -57,14 +65,20 @@ Rules:
 - truthScore 0-20 = Clearly false/scam
 - If you cannot verify, set verdict UNVERIFIED, score 50.
 - NEVER give personal opinion.
-
-Content to analyze:
+- Identify both visual manipulations and text claims.
+- Identify common logical fallacies or propaganda techniques (e.g. ad hominem, strawman, bandwagon, name calling, emotional appeal) in logicalFallacies.
 ''';
+
+    final List<Part> parts = [];
+    parts.add(TextPart('$systemPrompt\n$content'));
+    if (imageBytes != null) {
+      parts.add(DataPart(mimeType ?? 'image/png', imageBytes));
+    }
 
     for (int attempt = 1; attempt <= 3; attempt++) {
       try {
         final response = await _model!
-            .generateContent([Content.text('$systemPrompt\n$content')])
+            .generateContent([Content.multi(parts)])
             .timeout(const Duration(seconds: 30));
 
         final text = response.text;
@@ -76,14 +90,15 @@ Content to analyze:
           'originalContent': content,
           'analyzedAt':      DateTime.now().toIso8601String(),
           'reportId':        reportId,
+          'imagePath':       localImagePath,
         });
       } catch (e) {
         debugPrint('Gemini factCheck attempt $attempt failed: $e');
-        if (attempt == 3) return _fallbackCheckResult(content, reportId);
+        if (attempt == 3) return _fallbackCheckResult(content, reportId, localImagePath);
         await Future<void>.delayed(Duration(seconds: attempt * 2));
       }
     }
-    return _fallbackCheckResult(content, reportId);
+    return _fallbackCheckResult(content, reportId, localImagePath);
   }
 
   // ── PERSONAL IMPACT ENGINE ────────────────────────────────────────
@@ -212,9 +227,17 @@ Question: $question
   }
 
   // ── REEL ANALYZER ─────────────────────────────────────────────────
-  Future<CheckResult> analyzeReel(String urlOrDescription) async {
+  Future<CheckResult> analyzeReel(
+    String urlOrDescription, {
+    Uint8List? imageBytes,
+    String? mimeType,
+    String? localImagePath,
+  }) async {
     return factCheck(
       'SOCIAL MEDIA / REEL CONTENT TO ANALYZE:\n$urlOrDescription',
+      imageBytes: imageBytes,
+      mimeType: mimeType,
+      localImagePath: localImagePath,
     );
   }
 
@@ -268,7 +291,7 @@ Return:
     return List.generate(6, (i) => chars[(now + i * 7) % chars.length]).join();
   }
 
-  CheckResult _fallbackCheckResult(String content, String reportId) {
+  CheckResult _fallbackCheckResult(String content, String reportId, [String? imagePath]) {
     final lower = content.toLowerCase();
 
     // Rule 1: UNESCO national anthem viral rumor
@@ -280,10 +303,12 @@ Return:
         explanation:     'UNESCO has never declared any country\'s national anthem as the "best in the world". This is a long-standing viral hoax that has been debunked repeatedly.',
         manipulationScore: 80,
         manipulationTactics: const ['Appeal to Authority', 'Fabricated Content'],
+        logicalFallacies: const ['Appeal to Authority', 'False Consensus'],
         contentType:     'post',
         analyzedAt:      DateTime.now(),
         reportId:        reportId,
         sources:         const ['UNESCO Official Statement (https://unesco.org)', 'Alt News / Boom Live Fact Checks'],
+        imagePath:       imagePath,
       );
     }
 
@@ -298,10 +323,12 @@ Return:
         explanation:     'Government agencies and telecom operators do not offer free recharges or data through random WhatsApp links. This is a phishing scam designed to steal personal details.',
         manipulationScore: 95,
         manipulationTactics: const ['Financial Bait', 'Phishing Links'],
+        logicalFallacies: const ['Red Herring', 'Emotional Appeal'],
         contentType:     'link',
         analyzedAt:      DateTime.now(),
         reportId:        reportId,
         sources:         const ['COAI / Telecom Regulatory Authority of India (TRAI) Advisories'],
+        imagePath:       imagePath,
       );
     }
 
@@ -314,10 +341,12 @@ Return:
         explanation:     'NASA monitors near-Earth asteroids continuously. There is no known asteroid on a collision course with Earth that poses a threat in the next 100 years. Headlines are often sensationalized.',
         manipulationScore: 75,
         manipulationTactics: const ['Sensationalism', 'Fear Mongering'],
+        logicalFallacies: const ['Appeal to Fear', 'Sensationalism'],
         contentType:     'news',
         analyzedAt:      DateTime.now(),
         reportId:        reportId,
         sources:         const ['NASA Center for Near Earth Object Studies (https://cneos.jpl.nasa.gov)'],
+        imagePath:       imagePath,
       );
     }
 
@@ -330,6 +359,7 @@ Return:
       contentType:     'unknown',
       analyzedAt:      DateTime.now(),
       reportId:        reportId,
+      imagePath:       imagePath,
     );
   }
 

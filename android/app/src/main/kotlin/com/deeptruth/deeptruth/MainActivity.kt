@@ -1,4 +1,4 @@
-package com.lensiq.lensiq
+package com.deeptruth.deeptruth
 
 import io.flutter.embedding.android.FlutterActivity
 

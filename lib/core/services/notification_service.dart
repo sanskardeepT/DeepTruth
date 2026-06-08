@@ -15,9 +15,9 @@ class NotificationService {
   String? _lastSentDate;
 
   static const _androidDetails = AndroidNotificationDetails(
-    'lensiq_channel',
-    'LensIQ Alerts',
-    channelDescription: 'LensIQ daily truth checks and streak alerts',
+    'deeptruth_channel',
+    'DeepTruth Alerts',
+    channelDescription: 'DeepTruth daily truth checks and streak alerts',
     importance: Importance.high,
     priority: Priority.high,
     icon: '@mipmap/ic_launcher',
@@ -83,7 +83,7 @@ class NotificationService {
         id:    AppConstants.notifBreaking,
         hour:  18,
         min:   0,
-        title: 'LensIQ Breaking Truths 📡',
+        title: 'DeepTruth Breaking Truths 📡',
         body:  'Most shared misinformation of the day — verified.',
       );
     } catch (e) {
@@ -136,7 +136,7 @@ class NotificationService {
       await _plugin.zonedSchedule(
         AppConstants.notifStreak,
         '🔥 Your $streakDays-day streak ends in 3 hours!',
-        'Open LensIQ to keep your streak alive.',
+        'Open DeepTruth to keep your streak alive.',
         scheduled,
         _details,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,

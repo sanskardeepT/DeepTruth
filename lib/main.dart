@@ -60,5 +60,5 @@ Future<void> main() async {
   // 8. Notifications (request permission on first run)
   await NotificationService.instance.initialize();
 
-  runApp(const LensIQApp());
+  runApp(const DeepTruthApp());
 }

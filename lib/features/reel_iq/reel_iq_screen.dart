@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/providers/check_provider.dart';
@@ -18,6 +20,23 @@ class ReelIQScreen extends StatefulWidget {
 
 class _ReelIQScreenState extends State<ReelIQScreen> {
   final _controller = TextEditingController();
+  String? _selectedImagePath;
+
+  Future<void> _pickImage() async {
+    try {
+      final picker = ImagePicker();
+      final image = await picker.pickImage(source: ImageSource.gallery);
+      if (image != null) {
+        if (mounted) {
+          setState(() {
+            _selectedImagePath = image.path;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error picking image: $e');
+    }
+  }
 
   @override
   void dispose() {
@@ -163,6 +182,7 @@ class _ReelIQScreenState extends State<ReelIQScreen> {
   }
 
   Widget _buildInputArea(BuildContext context, CheckProvider cp) {
+    final canSubmit = _controller.text.trim().isNotEmpty || _selectedImagePath != null;
     return Column(
       children: [
         TextField(
@@ -171,20 +191,94 @@ class _ReelIQScreenState extends State<ReelIQScreen> {
           maxLines: 5,
           minLines: 3,
           decoration: const InputDecoration(hintText: AppStrings.reelHint),
+          onChanged: (_) {
+            if (mounted) setState(() {});
+          },
+        ),
+        if (_selectedImagePath != null) ...[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.divider),
+            ),
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.file(
+                    File(_selectedImagePath!),
+                    width: 44,
+                    height: 44,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Attached Reel Screenshot',
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _selectedImagePath!.split(Platform.pathSeparator).last,
+                        style: const TextStyle(
+                          color: AppColors.textMuted,
+                          fontSize: 10,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline_rounded, color: AppColors.danger, size: 20),
+                  onPressed: () {
+                    if (mounted) setState(() => _selectedImagePath = null);
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            TextButton.icon(
+              onPressed: _pickImage,
+              icon: const Icon(Icons.image_search_rounded, size: 16),
+              label: Text(_selectedImagePath == null ? 'Attach Screenshot' : 'Change Image'),
+              style: TextButton.styleFrom(
+                foregroundColor: _selectedImagePath == null ? AppColors.textMuted : AppColors.accent,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 12),
         SizedBox(
           width: double.infinity,
           height: 52,
           child: ElevatedButton(
-            onPressed: () {
-              final text = _controller.text.trim();
-              if (text.isEmpty) return;
-              cp.analyze('REEL/SOCIAL MEDIA CONTENT:\n$text');
-            },
+            onPressed: canSubmit ? () {
+              var text = _controller.text.trim();
+              if (text.isEmpty && _selectedImagePath != null) {
+                text = "Verification analysis of the attached reel screenshot.";
+              }
+              cp.analyze('REEL/SOCIAL MEDIA CONTENT:\n$text', imagePath: _selectedImagePath);
+            } : null,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF9B59B6),
               foregroundColor: Colors.white,
+              disabledBackgroundColor: const Color(0xFF9B59B6).withValues(alpha: 0.4),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14)),
             ),

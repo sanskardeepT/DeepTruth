@@ -10,6 +10,7 @@ import '../../app.dart';
 import 'widgets/daily_reality_card.dart';
 import 'widgets/quick_action_chips.dart';
 import 'widgets/trending_checks_list.dart';
+import 'widgets/settings_dialog.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -51,32 +52,48 @@ class HomeScreen extends StatelessWidget {
       floating: true,
       snap: true,
       backgroundColor: AppColors.bgPrimary,
-      title: const Row(
+      title: Row(
         children: [
-          Icon(Icons.lens, color: AppColors.accent, size: 22),
-          SizedBox(width: 6),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                AppStrings.appName,
-                style: TextStyle(
-                  color:      AppColors.textPrimary,
-                  fontSize:   18,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.asset(
+              'assets/images/deeptruth_logo.png',
+              width: 32,
+              height: 32,
+              fit: BoxFit.cover,
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  AppStrings.appName,
+                  style: TextStyle(
+                    color:      AppColors.textPrimary,
+                    fontSize:   18,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
                 ),
-              ),
-              Text(
-                'See through everything',
-                style: TextStyle(color: AppColors.textMuted, fontSize: 10),
-              ),
-            ],
+                Text(
+                  'In a world of lies, let DeepTruth be your eyes',
+                  style: TextStyle(color: AppColors.textMuted, fontSize: 9),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
         ],
       ),
       actions: [
+        IconButton(
+          icon: const Icon(Icons.settings_outlined, color: AppColors.textPrimary),
+          tooltip: 'API Keys Settings',
+          onPressed: () => SettingsDialog.show(context),
+        ),
         Consumer<AppProvider>(
           builder: (context, appProvider, __) => PopupMenuButton<String>(
             icon: const Icon(Icons.language_rounded, color: AppColors.textPrimary),

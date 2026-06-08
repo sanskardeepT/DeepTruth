@@ -30,6 +30,7 @@ class _TraceIQScreenState extends State<TraceIQScreen>
     (AppStrings.traceUsername, Icons.alternate_email,       OsintQueryType.username),
     (AppStrings.traceIP,       Icons.router_outlined,       OsintQueryType.ip),
     (AppStrings.traceWebsite,  Icons.language_outlined,     OsintQueryType.website),
+    (AppStrings.traceImage,    Icons.image_search_rounded,  OsintQueryType.image),
   ];
 
   @override
@@ -71,6 +72,8 @@ class _TraceIQScreenState extends State<TraceIQScreen>
         result = await OsintService.instance.lookupIp(query);
       case OsintQueryType.website:
         result = await OsintService.instance.lookupWebsite(query);
+      case OsintQueryType.image:
+        result = await OsintService.instance.analyzeImageMetadata(query);
       default:
         result = OsintResult.error(type, query, 'Not supported yet.');
     }
