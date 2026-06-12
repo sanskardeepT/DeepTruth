@@ -7,10 +7,8 @@ import '../../core/providers/check_provider.dart';
 import '../../widgets/ad_banner_widget.dart';
 import '../../widgets/app_error_widget.dart';
 import '../../widgets/loading_shimmer.dart';
-import '../../widgets/report_download_button.dart';
 import 'widgets/check_input_box.dart';
-import 'widgets/truth_score_card.dart';
-import 'widgets/impact_detail_sheet.dart';
+import 'widgets/verification_console.dart';
 
 class TruthLensScreen extends StatefulWidget {
   const TruthLensScreen({super.key});
@@ -94,30 +92,13 @@ class _TruthLensScreenState extends State<TruthLensScreen> {
 
       case CheckState.done:
         if (cp.result == null) return const SizedBox.shrink();
-        return Column(
-          children: [
-            TruthScoreCard(result: cp.result!),
-            const SizedBox(height: 16),
-            if (cp.impactResult != null) ...[
-              ImpactDetailSheet(impact: cp.impactResult!),
-              const SizedBox(height: 16),
-            ],
-            ReportDownloadButton(
-              checkResult: cp.result!,
-              impactResult: cp.impactResult,
-            ),
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: () {
-                cp.reset();
-                _textController.clear();
-              },
-              child: const Text(
-                'Check Something Else',
-                style: TextStyle(color: AppColors.textMuted),
-              ),
-            ),
-          ],
+        return VerificationConsoleWidget(
+          result: cp.result!,
+          impact: cp.impactResult,
+          onReset: () {
+            cp.reset();
+            _textController.clear();
+          },
         );
 
       case CheckState.error:

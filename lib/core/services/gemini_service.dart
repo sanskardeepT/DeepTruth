@@ -4,6 +4,13 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 import '../constants/api_keys.dart';
 import '../models/check_result.dart';
 import '../models/impact_result.dart';
+import '../models/trust_verification_models.dart';
+import '../engine/c2pa_engine.dart';
+import '../engine/provenance_engine.dart';
+import '../engine/deepfake_engine.dart';
+import '../engine/reputation_engine.dart';
+import '../engine/consensus_engine.dart';
+import '../engine/trust_graph_service.dart';
 
 class GeminiService {
   GeminiService._();
@@ -38,39 +45,80 @@ class GeminiService {
     String? localImagePath,
   }) async {
     final reportId = 'DT-${DateTime.now().millisecondsSinceEpoch}-${_randomSuffix()}';
-    if (!_initialized || _model == null) return _fallbackCheckResult(content, reportId, localImagePath);
 
-    const systemPrompt = '''
-You are a strict fact-checking AI. Analyze the given content and any attached image or screenshot, and return ONLY a valid JSON object.
-No preamble, no explanation outside JSON, no markdown fences.
+    // 1. Run local engines on-device
+    final c2paRes = await C2paEngine.instance.verifyAsset(localImagePath, imageBytes);
+    final provRes = await ProvenanceEngine.instance.analyzeAsset(localImagePath);
+    final dfRes   = await DeepfakeEngine.instance.scanAsset(localImagePath, imageBytes);
+    final repRes  = await ReputationEngine.instance.evaluateDomain(provRes.sourceDomain ?? '');
 
-JSON structure required:
+    // 2. Perform weighted consensus scoring locally
+    final conRes  = ConsensusEngine.instance.calculate(
+      c2pa: c2paRes,
+      provenance: provRes,
+      deepfake: dfRes,
+      reputation: repRes,
+    );
+
+    // 3. Generate Trust Graph Lineage locally
+    final graphRes = TrustGraphService.instance.generateLineage(
+      creatorName: provRes.creator ?? 'Unknown Artist',
+      publisherName: c2paRes.publisher ?? 'Unknown Agency',
+      sourceDomain: provRes.sourceDomain ?? 'unknown.com',
+      deepfakeFamily: dfRes.deepfakeProbability > 50 ? 'GAN Synthetic Media' : 'None',
+    );
+
+    // If Gemini is not initialized, fallback to purely local calculations
+    if (!_initialized || _model == null) {
+      return CheckResult(
+        originalContent: content,
+        truthScore: conRes.trustScore,
+        verdict: conRes.verdict,
+        explanation: conRes.justification,
+        manipulationScore: conRes.manipulationScore,
+        contentType: 'unknown',
+        analyzedAt: DateTime.now(),
+        reportId: reportId,
+        imagePath: localImagePath,
+        c2pa: c2paRes,
+        provenance: provRes,
+        deepfake: dfRes,
+        reputation: repRes,
+        consensus: conRes,
+        trustGraph: graphRes,
+      );
+    }
+
+    final systemPrompt = '''
+You are the central engine of the DeepTruth X Trust Intelligence Operating System.
+Your task is to analyze the content and visual context of the claim/image, validate the extracted on-device signals, and return a single, complete, valid JSON structure.
+No preamble, no markdown formatting fences.
+
+On-Device Extraction Signals:
+- C2PA Status: ${c2paRes.hasC2PA ? "Manifest Present, Issuer: ${c2paRes.publisher}" : "Unsigned Media"}
+- EXIF Hardware Metadata: ${provRes.exif}
+- GPS Coordinates: ${provRes.gps ?? "None"}
+- Camera/Device: ${provRes.camera ?? "None"}
+- Software/Editor: ${provRes.software ?? "None"}
+- Deepfake Multi-stage Probabilities: Image: ${dfRes.imageRisk}%, Video: ${dfRes.videoRisk}%, Audio: ${dfRes.audioRisk}%, Overall: ${dfRes.deepfakeProbability}%
+- Source Domain: ${repRes.domain} (Reputation Score: ${repRes.reputationScore}/100, Successes: ${repRes.verificationSuccess})
+
+Return ONLY this valid JSON schema:
 {
-  "truthScore": <integer 0-100>,
-  "verdict": "<TRUE|FALSE|MISLEADING|UNVERIFIED>",
-  "explanation": "<2-3 sentences, plain language>",
-  "missingContext": "<important context omitted, or null>",
+  "truthScore": ${conRes.trustScore},
+  "verdict": "${conRes.verdict}",
+  "explanation": "<contextual forensic explanation summary>",
+  "missingContext": "<missing context or null>",
   "sources": ["<source name + URL>"],
-  "manipulationTactics": ["<tactic name>"],
-  "logicalFallacies": ["<fallacy or propaganda tactic name, or empty list>"],
-  "manipulationScore": <integer 0-100>,
+  "manipulationTactics": ["<tactic>"],
+  "logicalFallacies": ["<fallacy>"],
+  "manipulationScore": ${conRes.manipulationScore},
   "contentType": "<news|reel|link|post|statement|unknown>"
 }
-
-Rules:
-- truthScore 81-100 = Verified true
-- truthScore 61-80 = Mostly true
-- truthScore 41-60 = Mixed
-- truthScore 21-40 = Mostly false
-- truthScore 0-20 = Clearly false/scam
-- If you cannot verify, set verdict UNVERIFIED, score 50.
-- NEVER give personal opinion.
-- Identify both visual manipulations and text claims.
-- Identify common logical fallacies or propaganda techniques (e.g. ad hominem, strawman, bandwagon, name calling, emotional appeal) in logicalFallacies.
 ''';
 
     final List<Part> parts = [];
-    parts.add(TextPart('$systemPrompt\n$content'));
+    parts.add(TextPart('$systemPrompt\nCLAIM CONTENT:\n$content'));
     if (imageBytes != null) {
       parts.add(DataPart(mimeType ?? 'image/png', imageBytes));
     }
@@ -84,21 +132,55 @@ Rules:
         final text = response.text;
         if (text == null || text.isEmpty) continue;
 
-        final json = jsonDecode(_cleanJson(text)) as Map<String, dynamic>;
-        return CheckResult.fromJson({
-          ...json,
-          'originalContent': content,
-          'analyzedAt':      DateTime.now().toIso8601String(),
-          'reportId':        reportId,
-          'imagePath':       localImagePath,
-        });
+        final parsedJson = jsonDecode(_cleanJson(text)) as Map<String, dynamic>;
+        final finalVerdict = parsedJson['verdict'] as String? ?? conRes.verdict;
+        final finalExplanation = parsedJson['explanation'] as String? ?? conRes.justification;
+
+        return CheckResult(
+          originalContent: content,
+          truthScore: conRes.trustScore,
+          verdict: finalVerdict,
+          explanation: finalExplanation,
+          missingContext: parsedJson['missingContext'] as String?,
+          sources: (parsedJson['sources'] as List?)?.map((e) => e?.toString() ?? '').toList() ?? conRes.adjustments.map((a) => a['factor'] as String).toList(),
+          manipulationTactics: (parsedJson['manipulationTactics'] as List?)?.map((e) => e?.toString() ?? '').toList() ?? const [],
+          logicalFallacies: (parsedJson['logicalFallacies'] as List?)?.map((e) => e?.toString() ?? '').toList() ?? const [],
+          manipulationScore: conRes.manipulationScore,
+          contentType: parsedJson['contentType'] as String? ?? 'unknown',
+          analyzedAt: DateTime.now(),
+          reportId: reportId,
+          imagePath: localImagePath,
+          c2pa: c2paRes,
+          provenance: provRes,
+          deepfake: dfRes,
+          reputation: repRes,
+          consensus: conRes,
+          trustGraph: graphRes,
+        );
       } catch (e) {
         debugPrint('Gemini factCheck attempt $attempt failed: $e');
-        if (attempt == 3) return _fallbackCheckResult(content, reportId, localImagePath);
+        if (attempt == 3) break;
         await Future<void>.delayed(Duration(seconds: attempt * 2));
       }
     }
-    return _fallbackCheckResult(content, reportId, localImagePath);
+
+    return CheckResult(
+      originalContent: content,
+      truthScore: conRes.trustScore,
+      verdict: conRes.verdict,
+      explanation: conRes.justification,
+      manipulationScore: conRes.manipulationScore,
+      contentType: 'unknown',
+      analyzedAt: DateTime.now(),
+      reportId: reportId,
+      imagePath: localImagePath,
+      c2pa: c2paRes,
+      provenance: provRes,
+      deepfake: dfRes,
+      reputation: repRes,
+      consensus: conRes,
+      trustGraph: graphRes,
+    );
   }
 
   // ── PERSONAL IMPACT ENGINE ────────────────────────────────────────
