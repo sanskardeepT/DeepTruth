@@ -24,6 +24,8 @@ class CheckProvider extends ChangeNotifier {
   ReportModel? _reportModel;
   String? _errorMessage;
   String? _prefilledContent;
+  String _loadingStage = '';
+  String _inputType = 'text';
 
   CheckState  get state          => _state;
   CheckResult? get result        => _result;
@@ -31,6 +33,8 @@ class CheckProvider extends ChangeNotifier {
   ReportModel? get reportModel   => _reportModel;
   String?     get errorMessage   => _errorMessage;
   String?     get prefilledContent => _prefilledContent;
+  String      get loadingStage   => _loadingStage;
+  String      get inputType      => _inputType;
 
   void prefillContent(String content) {
     _prefilledContent = content;
@@ -110,11 +114,17 @@ class CheckProvider extends ChangeNotifier {
         }
       }
 
+      _inputType = inputType;
+
       // Execute through verification orchestrator (C2PA, EXIF, Wayback, Google CSE, and Evidence Vault)
       final checkResult = await VerificationPipelineOrchestrator.instance.verify(
         inputType: inputType,
         originalContent: contentToVerify,
         fileBytes: imageBytes,
+        onStageChanged: (stage) {
+          _loadingStage = stage;
+          notifyListeners();
+        },
       );
 
       _result = checkResult;
@@ -171,6 +181,7 @@ class CheckProvider extends ChangeNotifier {
     _impactResult = null;
     _reportModel  = null;
     _errorMessage = null;
+    _loadingStage = '';
     notifyListeners();
   }
 

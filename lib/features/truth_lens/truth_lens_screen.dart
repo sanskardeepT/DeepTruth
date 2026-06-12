@@ -91,7 +91,7 @@ class _TruthLensScreenState extends State<TruthLensScreen> {
         return Column(
           children: [
             const SizedBox(height: 20),
-            _buildLoadingState(cp.state),
+            _buildLoadingState(cp),
           ],
         );
 
@@ -168,40 +168,235 @@ class _TruthLensScreenState extends State<TruthLensScreen> {
     );
   }
 
-  Widget _buildLoadingState(CheckState state) {
+  static const Map<String, List<String>> _pipelineStages = {
+    'image': [
+      'Local Cryptographic SHA-256 Hashing',
+      'Evidence Vault Cache Registry Lookup',
+      'Secure C2PA Digital Signature Manifest Check',
+      'EXIF Metadata & Capture Provenance Parse',
+      'Deepfake Image Probability Scan',
+      'Google Visual Search Source Crawling',
+      'Reputation & Consensus Weighted Calibration',
+      'Evidence Vault Index Archival Sync',
+    ],
+    'video': [
+      'Local Cryptographic SHA-256 Hashing',
+      'Evidence Vault Cache Registry Lookup',
+      'Temporal Video Frame Parsing',
+      'Publisher Reputation & Consensus Score Check',
+      'Evidence Vault Index Archival Sync',
+    ],
+    'url': [
+      'Local Cryptographic SHA-256 Hashing',
+      'Evidence Vault Cache Registry Lookup',
+      'VirusTotal & URLScan Security Logs Analysis',
+      'Wayback Machine Historical Archival Age Check',
+      'Consensus Score Calculation & Verdict Compile',
+      'Evidence Vault Index Archival Sync',
+    ],
+    'text': [
+      'Local Cryptographic SHA-256 Hashing',
+      'Evidence Vault Cache Registry Lookup',
+      'Google Fact Check Explorer Search',
+      'Consensus Score Calculation & Verdict Compile',
+      'Evidence Vault Index Archival Sync',
+    ],
+  };
+
+  int _getCurrentStageIndex(String inputType, String rawStage) {
+    if (rawStage.isEmpty) return 0;
+    final lower = rawStage.toLowerCase();
+    
+    if (inputType == 'image') {
+      if (lower.contains('hash')) return 0;
+      if (lower.contains('cache')) return 1;
+      if (lower.contains('cloud') || lower.contains('evidence vault')) return 1;
+      if (lower.contains('parallel') || lower.contains('plugin') || lower.contains('c2pa') || lower.contains('signature')) return 2;
+      if (lower.contains('exif') || lower.contains('metadata') || lower.contains('provenance') || lower.contains('camera')) return 3;
+      if (lower.contains('deepfake') || lower.contains('visual indicator')) return 4;
+      if (lower.contains('google') || lower.contains('visual search') || lower.contains('crawl')) return 5;
+      if (lower.contains('reputation') || lower.contains('consensus') || lower.contains('weighted')) return 6;
+      if (lower.contains('saving') || lower.contains('vault') || lower.contains('synchronizing')) return 7;
+    } else if (inputType == 'video') {
+      if (lower.contains('hash')) return 0;
+      if (lower.contains('cache') || lower.contains('vault')) {
+        if (lower.contains('save') || lower.contains('result')) return 4;
+        return 1;
+      }
+      if (lower.contains('frame') || lower.contains('temporal')) return 2;
+      if (lower.contains('reputation') || lower.contains('publisher') || lower.contains('consensus')) return 3;
+      if (lower.contains('saving') || lower.contains('vault') || lower.contains('synchronizing')) return 4;
+    } else if (inputType == 'url') {
+      if (lower.contains('hash')) return 0;
+      if (lower.contains('cache') || lower.contains('vault')) {
+        if (lower.contains('save') || lower.contains('result')) return 5;
+        return 1;
+      }
+      if (lower.contains('security') || lower.contains('virustotal') || lower.contains('urlscan')) return 2;
+      if (lower.contains('wayback') || lower.contains('archival') || lower.contains('snapshot')) return 3;
+      if (lower.contains('reputation') || lower.contains('consensus') || lower.contains('threat')) return 4;
+      if (lower.contains('saving') || lower.contains('vault') || lower.contains('synchronizing')) return 5;
+    } else if (inputType == 'text') {
+      if (lower.contains('hash')) return 0;
+      if (lower.contains('cache') || lower.contains('vault')) {
+        if (lower.contains('save') || lower.contains('result')) return 4;
+        return 1;
+      }
+      if (lower.contains('fact check') || lower.contains('query') || lower.contains('search')) return 2;
+      if (lower.contains('consensus') || lower.contains('rating')) return 3;
+      if (lower.contains('saving') || lower.contains('vault') || lower.contains('synchronizing')) return 4;
+    }
+    return 0;
+  }
+
+  Widget _buildLoadingState(CheckProvider cp) {
+    final state = cp.state;
+    final stage = cp.loadingStage;
+    final inputType = cp.inputType;
+    final stages = _pipelineStages[inputType] ?? _pipelineStages['text']!;
+    final isImpactLoading = state == CheckState.loadingImpact;
+    final activeIndex = isImpactLoading ? stages.length : _getCurrentStageIndex(inputType, stage);
+
     return Column(
       children: [
+        const SizedBox(height: 16),
         Container(
-          width:   64,
-          height:  64,
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            shape: BoxShape.circle,
             color: AppColors.bgCard,
-            border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.divider),
           ),
-          child: const Padding(
-            padding: EdgeInsets.all(16),
-            child: CircularProgressIndicator(
-              color:       AppColors.accent,
-              strokeWidth: 2.5,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    isImpactLoading ? 'VERIFICATION COMPLETED' : 'RUNNING VERIFICATION PIPELINE',
+                    style: const TextStyle(
+                      color: AppColors.textAccent,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  if (!isImpactLoading)
+                    const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.accent,
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                isImpactLoading
+                    ? 'Synthesizing localized interest vectors'
+                    : (stage.isNotEmpty ? stage : 'Initializing security handshake…'),
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Divider(color: AppColors.divider, height: 1),
+              const SizedBox(height: 20),
+              // Stages List
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: stages.length,
+                itemBuilder: (context, idx) {
+                  final isCompleted = idx < activeIndex;
+                  final isActive = idx == activeIndex && !isImpactLoading;
+                  final isPending = idx > activeIndex || (idx == activeIndex && isImpactLoading);
+
+                  Color iconColor;
+                  IconData iconData;
+                  double textOpacity;
+                  FontWeight textWeight;
+
+                  if (isCompleted) {
+                    iconColor = AppColors.success;
+                    iconData = Icons.check_circle_rounded;
+                    textOpacity = 0.6;
+                    textWeight = FontWeight.normal;
+                  } else if (isActive) {
+                    iconColor = AppColors.accent;
+                    iconData = Icons.radio_button_checked_rounded;
+                    textOpacity = 1.0;
+                    textWeight = FontWeight.bold;
+                  } else {
+                    iconColor = AppColors.textMuted.withValues(alpha: 0.4);
+                    iconData = Icons.radio_button_off_rounded;
+                    textOpacity = 0.4;
+                    textWeight = FontWeight.normal;
+                  }
+
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      children: [
+                        Icon(iconData, color: iconColor, size: 18),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            stages[idx],
+                            style: TextStyle(
+                              color: AppColors.textPrimary.withValues(alpha: textOpacity),
+                              fontSize: 12,
+                              fontWeight: textWeight,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              if (isImpactLoading) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.success,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Calculating personal interest matches…',
+                        style: TextStyle(
+                          color: AppColors.success.withValues(alpha: 0.9),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
           ),
-        ).animate().scale().then().shimmer(duration: 1500.ms),
-        const SizedBox(height: 20),
-        Text(
-          state == CheckState.loadingImpact
-              ? 'Calculating personal impact…'
-              : AppStrings.analyzingLabel,
-          style: const TextStyle(
-            color:      AppColors.textSecondary,
-            fontSize:   14,
-          ),
-        ).animate().fadeIn(),
-        const SizedBox(height: 32),
+        ).animate().fadeIn().scale(begin: const Offset(0.98, 0.98), duration: 200.ms),
+        const SizedBox(height: 24),
         const CheckResultShimmer(),
       ],
     );
   }
+
 
   Widget _buildTips() {
     const tips = [

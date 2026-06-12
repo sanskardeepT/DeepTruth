@@ -8,6 +8,8 @@ import 'score_gauge.dart';
 import 'forensics_panel.dart';
 import 'osint_details_panel.dart';
 import 'trust_graph_painter.dart';
+import 'evidence_timeline.dart';
+import 'explainability_tree.dart';
 
 class VerificationConsoleWidget extends StatefulWidget {
   final CheckResult result;
@@ -179,55 +181,14 @@ class _VerificationConsoleWidgetState extends State<VerificationConsoleWidget>
         ),
         const SizedBox(height: 20),
 
+        // Evidence Timeline
+        EvidenceTimeline(result: widget.result),
+        const SizedBox(height: 24),
+
         // Explainability Adjustments Tree
-        if (consensus != null && (consensus.adjustments as List).isNotEmpty) ...[
-          const Text(
-            'TRUST SCORE EXPLAINABILITY TREE:',
-            style: TextStyle(
-              color:        AppColors.textMuted,
-              fontSize:     10,
-              fontWeight:   FontWeight.bold,
-              letterSpacing: 0.5,
-            ),
-          ),
-          const SizedBox(height: 10),
-          ...consensus.adjustments.map<Widget>((adj) {
-            final int imp = adj['impact'] as int;
-            final isPos = imp >= 0;
-            return Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: AppColors.bgCard,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.divider),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    isPos ? Icons.add_circle_outline_rounded : Icons.remove_circle_outline_rounded,
-                    color: isPos ? AppColors.success : AppColors.danger,
-                    size: 16,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      adj['factor'] as String,
-                      style: const TextStyle(color: AppColors.textPrimary, fontSize: 12),
-                    ),
-                  ),
-                  Text(
-                    '${isPos ? "+" : ""}$imp',
-                    style: TextStyle(
-                      color:      isPos ? AppColors.success : AppColors.danger,
-                      fontWeight: FontWeight.bold,
-                      fontSize:   12,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
+        if (consensus != null) ...[
+          TrustScoreExplainabilityTree(consensus: consensus),
+          const SizedBox(height: 20),
         ],
         _buildFeedbackWidget(),
       ],

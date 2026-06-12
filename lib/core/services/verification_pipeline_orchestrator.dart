@@ -47,11 +47,13 @@ class VerificationPipelineOrchestrator {
     required String inputType, // image | video | url | text
     required String originalContent, // filePath, url, or raw text claim
     Uint8List? fileBytes,
+    void Function(String)? onStageChanged,
   }) async {
     final reportId = 'DT-${DateTime.now().millisecondsSinceEpoch}-${_uuid.v4().substring(0, 4)}';
     final stopwatch = Stopwatch()..start();
 
     // 1. Calculate SHA-256 for de-duplication in background isolate
+    onStageChanged?.call('Computing secure SHA-256 hash…');
     String hash;
     if (fileBytes != null && fileBytes.isNotEmpty) {
       hash = await HashUtil.calculateSha256(fileBytes);
@@ -60,6 +62,7 @@ class VerificationPipelineOrchestrator {
     }
 
     // 2. Check Local Hive Cache first (Offline Verification)
+    onStageChanged?.call('Checking local cache registry…');
     try {
       if (Hive.isBoxOpen(AppConstants.boxSettings)) {
         final localBox = Hive.box<String>(AppConstants.boxSettings);
@@ -77,6 +80,7 @@ class VerificationPipelineOrchestrator {
     }
 
     // 3. Check Cloud Evidence Vault for identical media de-duplication
+    onStageChanged?.call('Checking Cloud Evidence Vault…');
     try {
       final vaultDoc = await _firestore.collection('evidence_vault').doc(hash).get();
       if (vaultDoc.exists && vaultDoc.data() != null) {
@@ -104,13 +108,13 @@ class VerificationPipelineOrchestrator {
     CheckResult result;
 
     if (inputType == 'image') {
-      result = await _verifyImage(originalContent, fileBytes, hash, reportId);
+      result = await _verifyImage(originalContent, fileBytes, hash, reportId, onStageChanged);
     } else if (inputType == 'url') {
-      result = await _verifyUrl(originalContent, hash, reportId);
+      result = await _verifyUrl(originalContent, hash, reportId, onStageChanged);
     } else if (inputType == 'text') {
-      result = await _verifyClaim(originalContent, hash, reportId);
+      result = await _verifyClaim(originalContent, hash, reportId, onStageChanged);
     } else if (inputType == 'video') {
-      result = await _verifyVideo(originalContent, fileBytes, hash, reportId);
+      result = await _verifyVideo(originalContent, fileBytes, hash, reportId, onStageChanged);
     } else {
       throw ArgumentError('Invalid input type: $inputType');
     }
@@ -119,6 +123,7 @@ class VerificationPipelineOrchestrator {
     final benchmarkDurationMs = stopwatch.elapsedMilliseconds;
 
     // 5. Store completed audit record inside the Evidence Vault & local cache
+    onStageChanged?.call('Saving analysis results to Vault…');
     try {
       final resultJson = result.toJson();
       resultJson['reuseCount'] = 1; // Initial verification
@@ -196,22 +201,33 @@ class VerificationPipelineOrchestrator {
     Uint8List? bytes,
     String hash,
     String reportId,
+    void Function(String)? onStageChanged,
   ) async {
     // Run plugins in parallel
+    onStageChanged?.call('Running parallel forensic plugins…');
     final resultsMap = await _executePlugins('image', filePath, bytes);
 
+    onStageChanged?.call('Verifying C2PA digital signatures…');
     final c2paRes = resultsMap['c2pa'] as C2PAResult? ??
         const C2PAResult(hasC2PA: false, trustScore: 0, verificationStatus: 'NOT_FOUND');
+        
+    onStageChanged?.call('Extracting camera EXIF provenance tags…');
     final provRes = resultsMap['provenance'] as ProvenanceResult? ??
         const ProvenanceResult(reusedCount: 0);
+        
+    onStageChanged?.call('Scanning deepfake visual indicators…');
     final dfRes = resultsMap['deepfake'] as DeepfakeResult? ??
         const DeepfakeResult(deepfakeProbability: 0.0, confidence: 100.0, riskLevel: 'unknown');
+        
+    onStageChanged?.call('Crawling Google Visual Search database…');
     final reverseSearchRes = resultsMap['reverse_image'] as OsintResult?;
 
     // Extract domain from reverse image sources or EXIF/Provenance details
+    onStageChanged?.call('Evaluating media publisher reputation…');
     final sourceDomain = provRes.sourceDomain ?? (reverseSearchRes?.findings.isNotEmpty == true ? 'unknown.com' : '');
     final repRes = await ReputationEngine.instance.evaluateDomain(sourceDomain);
 
+    onStageChanged?.call('Compiling weighted consensus scores…');
     final conRes = ConsensusEngine.instance.calculate(
       c2pa: c2paRes,
       provenance: provRes,
@@ -261,9 +277,13 @@ class VerificationPipelineOrchestrator {
     String url,
     String hash,
     String reportId,
+    void Function(String)? onStageChanged,
   ) async {
     // Run threat intel plugin in parallel
+    onStageChanged?.call('Initiating URL security scans…');
     final resultsMap = await _executePlugins('url', url, null);
+    
+    onStageChanged?.call('Crawling VirusTotal & URLScan safety logs…');
     final threatIntel = resultsMap['threat_intel'] as OsintResult? ??
         OsintResult(
           queryType: OsintQueryType.url,
@@ -274,6 +294,7 @@ class VerificationPipelineOrchestrator {
           analyzedAt: DateTime.now(),
         );
         
+    onStageChanged?.call('Checking Wayback Machine first snapshot age…');
     final repRes = await ReputationEngine.instance.evaluateDomain(url);
 
     // Default mock structures for fields not relevant to URL scanning
@@ -299,6 +320,7 @@ class VerificationPipelineOrchestrator {
       analysisNote: 'Threat Analysis: ${threatIntel.error ?? "Healthy scans completed."}',
     );
 
+    onStageChanged?.call('Compiling server threat consensus scores…');
     final conRes = ConsensusEngine.instance.calculate(
       c2pa: c2pa,
       provenance: provenance,
@@ -323,7 +345,6 @@ class VerificationPipelineOrchestrator {
       contentType: 'url',
       analyzedAt: DateTime.now(),
       reportId: reportId,
-      sha256Hash: hash,
       c2pa: c2pa,
       provenance: provenance,
       deepfake: dfRes,
@@ -340,11 +361,14 @@ class VerificationPipelineOrchestrator {
     String claim,
     String hash,
     String reportId,
+    void Function(String)? onStageChanged,
   ) async {
     // Run fact checking search plugin
+    onStageChanged?.call('Searching Google Fact Check database…');
     final resultsMap = await _executePlugins('text', claim, null);
     final factChecks = resultsMap['fact_check'] as List<Map<String, dynamic>>? ?? [];
     
+    onStageChanged?.call('Analyzing consensus fact ratings…');
     CheckResult baseResult = CheckResult(
       originalContent: claim,
       truthScore: factChecks.isNotEmpty ? (factChecks[0]['rating'] == 'False' ? 10 : 80) : 50,
@@ -371,8 +395,10 @@ class VerificationPipelineOrchestrator {
     Uint8List? bytes,
     String hash,
     String reportId,
+    void Function(String)? onStageChanged,
   ) async {
     // Run deepfake verification plugin
+    onStageChanged?.call('Parsing video temporal frames…');
     final resultsMap = await _executePlugins('video', filePath, bytes);
     final dfRes = resultsMap['deepfake'] as DeepfakeResult? ??
         const DeepfakeResult(deepfakeProbability: 0.0, confidence: 100.0, riskLevel: 'unknown');
@@ -388,8 +414,10 @@ class VerificationPipelineOrchestrator {
       software: 'DeepTruth Native Video Parser v1',
     );
     
+    onStageChanged?.call('Checking video publisher reputation…');
     final repRes = await ReputationEngine.instance.evaluateDomain('video-upload.local');
 
+    onStageChanged?.call('Compiling video consensus indicators…');
     final conRes = ConsensusEngine.instance.calculate(
       c2pa: c2pa,
       provenance: provenance,
