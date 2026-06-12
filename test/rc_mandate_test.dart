@@ -8,6 +8,7 @@ import 'package:deeptruth/core/engine/reputation_history_engine.dart';
 import 'package:deeptruth/core/engine/claim_memory_engine.dart';
 import 'package:deeptruth/core/services/firebase_service.dart';
 import 'package:deeptruth/core/utils/version_utils.dart';
+import 'package:deeptruth/core/engine/consensus_engine.dart';
 
 void main() {
   setUpAll(() async {
@@ -212,6 +213,49 @@ void main() {
       expect(VersionUtils.isVersionOlder('1.1.0', '1.0.0'), isFalse);
       expect(VersionUtils.isVersionOlder('2.0.0', '1.0.0'), isFalse);
       expect(VersionUtils.isVersionOlder('1.0.1', '1.0.0'), isFalse);
+    });
+
+    test('Cloud Gateway cache miss results are strictly validated and recalculated via client ConsensusEngine', () {
+      final mockGatewayResponse = {
+        'sha256Hash': 'h_test_miss',
+        'inputType': 'url',
+        'originalContent': 'https://sus-link.com',
+        'explanation': 'Gateway explanation',
+        'summary': 'Gateway summary',
+        'osintScore': 40.0,
+        'sources': ['Consolidated Gateway'],
+        'isCacheHit': false,
+        'truthScore': 99, 
+        'verdict': 'TRUE', 
+      };
+
+      const c2pa = C2PAResult(hasC2PA: false, trustScore: 0, verificationStatus: 'NOT_APPLICABLE');
+      const provenance = ProvenanceResult(reusedCount: 0);
+      const repRes = ReputationResult(
+        domain: 'sus-link.com',
+        reputationScore: 50,
+        sourceReputationScore: 50,
+        historicalAccuracy: 50.0,
+        manipulationIncidents: 0,
+        verificationSuccess: 0,
+        transparency: 'Unknown',
+        category: 'unknown',
+        historicalReliability: 'Medium',
+        dynamicTrustEvolution: 'STABLE',
+      );
+      const dfRes = DeepfakeResult(deepfakeProbability: 0.0, confidence: 100.0, riskLevel: 'low');
+
+      final conRes = ConsensusEngine.instance.calculate(
+        c2pa: c2pa,
+        provenance: provenance,
+        deepfake: dfRes,
+        reputation: repRes,
+        osintScore: mockGatewayResponse['osintScore'] as double,
+      );
+
+      // Verify that OSINT of 40 degrades overall score and verdict differs from the mock payload's attempt (which was 99 and TRUE)
+      expect(conRes.trustScore, lessThan(80));
+      expect(conRes.verdict, isNot(equals('TRUE')));
     });
   });
 }

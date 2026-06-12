@@ -5,6 +5,34 @@ const axios = require("axios");
 admin.initializeApp();
 const db = admin.firestore();
 
+// Helper to compute numeric hash code for string keys
+function hashCode(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash |= 0;
+  }
+  return Math.abs(hash).toString();
+}
+
+// Secure server-side audit logging helper
+async function logAudit(uid, action, route, latency, success, error = null) {
+  try {
+    await db.collection("audit_trail").add({
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      uid: uid || "anonymous",
+      action: action,
+      route: route || "unknown",
+      latency: latency || 0,
+      success: success,
+      error: error || null
+    });
+  } catch (err) {
+    console.error("Failed to log audit trail:", err.message);
+  }
+}
+
 /**
  * Unified Cloud Verification Gateway Function
  * Consolidates all external API accesses (Gemini, VirusTotal, URLScan, Wayback) behind Firebase.
@@ -12,6 +40,8 @@ const db = admin.firestore();
  * and stores firstSeen, lastSeen, and scanCount metrics.
  */
 exports.verifyContentGateway = functions.https.onCall(async (data, context) => {
+  const startTime = Date.now();
+  
   // 1. Enforce user authentication
   if (!context.auth) {
     throw new functions.https.HttpsError(
@@ -34,7 +64,7 @@ exports.verifyContentGateway = functions.https.onCall(async (data, context) => {
   const docRef = db.collection("evidence_vault").doc(hash);
 
   try {
-    // 2. Server-side Evidence Vault Deduplication before invoking external APIs
+    // 2. Server-side Evidence Vault Deduplication
     const docSnap = await docRef.get();
     if (docSnap.exists) {
       const existing = docSnap.data();
@@ -47,6 +77,19 @@ exports.verifyContentGateway = functions.https.onCall(async (data, context) => {
       });
 
       console.log(`Gateway Cache Hit for hash: ${hash}. Incremented scanCount to ${updatedCount}`);
+      
+      const totalLatency = Date.now() - startTime;
+      
+      // Log Audit and Stats
+      await logAudit(uid, "cache_hit", inputType, totalLatency, true);
+      
+      // Server-side analytics increment
+      await db.collection("analytics").doc("vault_stats").set({
+        totalChecks: admin.firestore.FieldValue.increment(1),
+        cacheHits: admin.firestore.FieldValue.increment(1)
+      }, { merge: true });
+      await logAudit(uid, "analytics_update", inputType, 0, true);
+
       return {
         ...existing,
         scanCount: updatedCount,
@@ -66,7 +109,7 @@ exports.verifyContentGateway = functions.https.onCall(async (data, context) => {
       const lastScanDate = userData.lastScanDate || "";
       const scanCountToday = userData.scanCountToday || 0;
 
-      // Remote Config/Firestore Limit is enforced at 5 checks/day
+      // Remote Config/Firestore Limit is enforced at 10 checks/day
       if (lastScanDate === today && scanCountToday >= 10) {
         throw new functions.https.HttpsError(
           "resource-exhausted",
@@ -75,8 +118,7 @@ exports.verifyContentGateway = functions.https.onCall(async (data, context) => {
       }
     }
 
-    // 4. Secure API invocation using backend environment configuration secrets
-    // In production, functions fetch keys securely via process.env or Secret Manager
+    // 4. Secure API keys retrieval
     const geminiKey = process.env.GEMINI_API_KEY || functions.config().gemini?.key || "YOUR_GEMINI_KEY";
     const vtKey = process.env.VIRUSTOTAL_API_KEY || functions.config().virustotal?.key || "YOUR_VT_KEY";
 
@@ -84,9 +126,10 @@ exports.verifyContentGateway = functions.https.onCall(async (data, context) => {
     let gatewayExplanation = "Analysis correlates details against verified fact citation databases. Source publisher records show reliable standing.";
     let osintScore = 100;
 
-    // Simulate/Execute external threat index checks securely if url scans are requested
+    // Simulate/Execute external threat index checks securely if URL scans are requested
     if (inputType === "url") {
       try {
+        await logAudit(uid, "api_call", "virustotal", 0, true);
         if (vtKey !== "YOUR_VT_KEY") {
           const vtUrl = `https://www.virustotal.com/api/v3/urls`;
           const vtRes = await axios.post(vtUrl, `url=${encodeURIComponent(content)}`, {
@@ -102,50 +145,46 @@ exports.verifyContentGateway = functions.https.onCall(async (data, context) => {
         }
       } catch (err) {
         console.error("VirusTotal API call failed inside Gateway", err.message);
-        osintScore = 50; // Degrade index gracefully
+        osintScore = 50; 
       }
     }
 
-    // 5. Build Consensus Scoring deterministically in Gateway
-    const reputationScore = localResults?.reputationScore || 50;
-    const forensicsScore = localResults?.forensicsScore || 100;
-    const computedTrust = Math.round((reputationScore * 0.4) + (forensicsScore * 0.4) + (osintScore * 0.2));
+    // 5. Cloud Function ONLY logs stats and updates server side
+    // Write top query securely on the server side
+    const cleanContent = content.trim();
+    const queryKey = `q_${hashCode(cleanContent)}`;
+    await db.collection("top_queries").doc(queryKey).set({
+      content: cleanContent.length > 200 ? cleanContent.substring(0, 200) : cleanContent,
+      inputType: inputType,
+      scanCount: admin.firestore.FieldValue.increment(1),
+      lastScanned: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    await logAudit(uid, "top_query_update", inputType, 0, true);
 
-    let verdict = "UNVERIFIED";
-    if (computedTrust >= 80) verdict = "TRUE";
-    else if (computedTrust >= 45) verdict = "MISLEADING";
-    else verdict = "FALSE";
+    // Update global check counters securely on the server side
+    await db.collection("analytics").doc("vault_stats").set({
+      totalChecks: admin.firestore.FieldValue.increment(1)
+    }, { merge: true });
+    await logAudit(uid, "analytics_update", inputType, 0, true);
 
-    const newRecord = {
+    const totalLatency = Date.now() - startTime;
+    await logAudit(uid, "cache_miss", inputType, totalLatency, true);
+
+    // Return RAW metrics and narratives ONLY (NO trustScore, verdict, or confidenceScore computed here!)
+    return {
       sha256Hash: hash,
       inputType: inputType,
       originalContent: content,
-      verdict: verdict,
-      truthScore: computedTrust,
       explanation: gatewayExplanation,
       summary: gatewaySummary,
+      osintScore: osintScore,
       sources: ["DeepTruth Consolidated Gateway", "PIB Index Registry"],
-      manipulationTactics: computedTrust < 45 ? ["Suspicious Origin"] : [],
-      logicalFallacies: [],
-      timestamp: now,
-      firstSeen: now,
-      lastSeen: now,
-      scanCount: 1,
-      reuseCount: 1,
-      feedbackCount: 0,
-      helpfulCount: 0,
-      notHelpfulCount: 0,
-      historicalTrendMetrics: "STABLE",
       isCacheHit: false
     };
 
-    // Store completed verification in server-side Evidence Vault V2
-    await docRef.set(newRecord);
-
-    console.log(`Stored secure V2 evidence document in Firestore for hash: ${hash}`);
-    return newRecord;
-
   } catch (error) {
+    const totalLatency = Date.now() - startTime;
+    await logAudit(uid, "cache_miss", inputType, totalLatency, false, error.message);
     console.error("Gateway verifyContentGateway execution error: ", error);
     throw new functions.https.HttpsError(
       "internal", 

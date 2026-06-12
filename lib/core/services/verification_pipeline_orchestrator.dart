@@ -153,7 +153,54 @@ class VerificationPipelineOrchestrator {
         };
 
         final response = await FirebaseService.instance.callCloudGateway('verifyContentGateway', gatewayData);
-        result = CheckResult.fromJson(response);
+        final isCacheHit = response['isCacheHit'] as bool? ?? false;
+        
+        if (isCacheHit) {
+          result = CheckResult.fromJson(response);
+        } else {
+          final osintScore = (response['osintScore'] as num?)?.toDouble() ?? 100.0;
+          final explanation = response['explanation'] as String? ?? '';
+          final summary = response['summary'] as String? ?? '';
+          final sources = (response['sources'] as List?)?.cast<String>() ?? <String>[];
+          
+          const c2pa = C2PAResult(hasC2PA: false, trustScore: 0, verificationStatus: 'NOT_APPLICABLE');
+          const provenance = ProvenanceResult(reusedCount: 0);
+          final repRes = await ReputationEngine.instance.evaluateDomain(inputType == 'url' ? originalContent : 'unknown');
+          const dfRes = DeepfakeResult(deepfakeProbability: 0.0, confidence: 100.0, riskLevel: 'low');
+          
+          final conRes = ConsensusEngine.instance.calculate(
+            c2pa: c2pa,
+            provenance: provenance,
+            deepfake: dfRes,
+            reputation: repRes,
+            osintScore: osintScore,
+          );
+          
+          result = CheckResult(
+            originalContent: originalContent,
+            truthScore: conRes.trustScore,
+            verdict: conRes.verdict,
+            explanation: explanation.isNotEmpty ? explanation : conRes.justification,
+            summary: summary,
+            sources: sources,
+            manipulationScore: conRes.manipulationScore,
+            contentType: inputType,
+            analyzedAt: DateTime.now(),
+            reportId: reportId,
+            sha256Hash: hash,
+            c2pa: c2pa,
+            provenance: provenance,
+            deepfake: dfRes,
+            reputation: repRes,
+            consensus: conRes,
+            trustGraph: TrustGraphService.instance.generateLineage(
+              creatorName: 'Web Server',
+              publisherName: repRes.transparency,
+              sourceDomain: repRes.domain,
+              deepfakeFamily: 'None',
+            ),
+          );
+        }
       } catch (e) {
         debugPrint('Cloud Gateway verifyContentGateway failed: $e. Falling back to local execution.');
         result = await _executeLocalPipeline(inputType, originalContent, fileBytes, hash, reportId, onStageChanged);
@@ -220,6 +267,7 @@ class VerificationPipelineOrchestrator {
       resultJson['lastSeen'] = DateTime.now().toIso8601String();
       resultJson['verdict'] = result.verdict;
       resultJson['trustScore'] = result.truthScore;
+      resultJson['confidenceScore'] = result.consensus?.confidenceScore ?? 90;
       resultJson['evidenceSources'] = result.sources;
       resultJson['feedbackCount'] = feedbackCount;
       resultJson['helpfulCount'] = helpfulCount;

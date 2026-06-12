@@ -17,10 +17,10 @@ service cloud.firestore {
     }
 
     // 1. Evidence Vault Collection
-    // - Reads: Publicly readable so any installation can read cached hashes.
-    // - Writes: Allow authenticated uploader, validate fields.
+    // - Reads: Restricted to authenticated users only.
+    // - Writes: Allow authenticated uploaders with validated fields.
     match /evidence_vault/{hash} {
-      allow read: if true;
+      allow read: if request.auth != null;
       allow create: if request.auth != null 
                     && request.resource.data.sha256Hash == hash
                     && isValidEvidence(request.resource.data);
@@ -30,8 +30,8 @@ service cloud.firestore {
     }
 
     // 2. User Feedback Collection
-    // - Reads: Blocked for general users; restricted to admin accounts.
-    // - Writes: Authenticated users can submit a rating/comment feedback item, validate fields.
+    // - Reads: Blocked for general clients; restricted to admin accounts.
+    // - Writes: Authenticated users can submit feedback.
     match /user_feedback/{feedbackId} {
       allow read: if request.auth != null && request.auth.token.admin == true;
       allow create: if request.auth != null 
@@ -41,13 +41,13 @@ service cloud.firestore {
 
     // 3. Announcements Collection
     // - Reads: Publicly readable for Home Screen banner alerts.
-    // - Writes: Strictly writeable by administrators only.
+    // - Writes: Admin only.
     match /announcements/{announcementId} {
       allow read: if true;
       allow write: if request.auth != null && request.auth.token.admin == true;
     }
 
-    // 4. Users (Active Sessions log)
+    // 4. Users (Active Sessions & limits log)
     // - Reads & Writes: strictly restricted to the owning authenticated user.
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
@@ -55,18 +55,18 @@ service cloud.firestore {
 
     // 5. Top Queries
     // - Reads: Publicly readable.
-    // - Writes: Allow authenticated users to increment check count.
+    // - Writes: Locked to clients. Cloud Functions (Admin SDK) only.
     match /top_queries/{queryId} {
       allow read: if true;
-      allow create, update: if request.auth != null;
+      allow write: if false;
     }
 
     // 6. Analytics Stats (Vault statistics & system health)
-    // - Reads: Publicly readable by Admin screen.
-    // - Writes: Allow updates to counters from authenticated clients.
+    // - Reads: Publicly readable.
+    // - Writes: Locked to clients. Cloud Functions (Admin SDK) only.
     match /analytics/{docId} {
       allow read: if true;
-      allow create, update: if request.auth != null;
+      allow write: if false;
     }
   }
 }
