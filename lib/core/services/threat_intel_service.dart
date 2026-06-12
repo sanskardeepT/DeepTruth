@@ -434,41 +434,85 @@ class ThreatIntelService {
   /// Checks the Internet Archive Wayback Machine to see if the URL has history.
   Future<OsintResult> scanWaybackArchive(String url) async {
     try {
-      final response = await _dio.get(
-        'https://archive.org/wayback/available',
-        queryParameters: {'url': url},
-        options: Options(
-          validateStatus: (status) => status != null && status < 500,
-        ),
-      ).timeout(const Duration(seconds: 10));
-
-      if (response.statusCode != 200) {
-        throw Exception('Wayback API returned status code ${response.statusCode}');
-      }
-
-      final data = response.data as Map<String, dynamic>;
-      final snapshots = data['archived_snapshots'] as Map<String, dynamic>? ?? {};
-      final closest = snapshots['closest'] as Map<String, dynamic>?;
-
       final findings = <OsintFinding>[];
       String riskLevel = 'low';
+      String? firstSnapshot;
+      String? latestSnapshot;
+      String ageIndicator = 'Brand New / Unarchived';
 
-      if (closest != null && closest['available'] == true) {
-        final archiveUrl = closest['url'] as String? ?? '';
-        final timestamp = closest['timestamp'] as String? ?? '';
-        
-        String readableDate = timestamp;
-        if (timestamp.length == 14) {
-          readableDate = '${timestamp.substring(0, 4)}-${timestamp.substring(4, 6)}-${timestamp.substring(6, 8)} '
-              '${timestamp.substring(8, 10)}:${timestamp.substring(10, 12)}:${timestamp.substring(12, 14)}';
+      // 1. Fetch first snapshot
+      try {
+        final firstRes = await _dio.get(
+          'https://web.archive.org/cdx/search/cdx',
+          queryParameters: {
+            'url': url,
+            'output': 'json',
+            'fl': 'timestamp',
+            'limit': 1,
+          },
+        ).timeout(const Duration(seconds: 8));
+
+        if (firstRes.statusCode == 200 && firstRes.data is List) {
+          final rows = firstRes.data as List<dynamic>;
+          if (rows.length > 1 && rows[1] is List && (rows[1] as List).isNotEmpty) {
+            firstSnapshot = rows[1][0]?.toString();
+          }
+        }
+      } catch (e) {
+        debugPrint('Wayback first snapshot fetch failed: $e');
+      }
+
+      // 2. Fetch latest snapshot
+      try {
+        final latestRes = await _dio.get(
+          'https://web.archive.org/cdx/search/cdx',
+          queryParameters: {
+            'url': url,
+            'output': 'json',
+            'fl': 'timestamp',
+            'limit': -1,
+          },
+        ).timeout(const Duration(seconds: 8));
+
+        if (latestRes.statusCode == 200 && latestRes.data is List) {
+          final rows = latestRes.data as List<dynamic>;
+          if (rows.length > 1 && rows[1] is List && (rows[1] as List).isNotEmpty) {
+            latestSnapshot = rows[1][0]?.toString();
+          }
+        }
+      } catch (e) {
+        debugPrint('Wayback latest snapshot fetch failed: $e');
+      }
+
+      if (firstSnapshot != null) {
+        if (firstSnapshot.length >= 8) {
+          final year = int.tryParse(firstSnapshot.substring(0, 4)) ?? 0;
+          final month = int.tryParse(firstSnapshot.substring(4, 6)) ?? 1;
+          final day = int.tryParse(firstSnapshot.substring(6, 8)) ?? 1;
+          final date = DateTime(year, month, day);
+          final diff = DateTime.now().difference(date);
+          
+          if (diff.inDays > 365) {
+            final years = (diff.inDays / 365.0).toStringAsFixed(1);
+            ageIndicator = '$years years old';
+          } else {
+            ageIndicator = '${diff.inDays} days old';
+          }
         }
 
-        findings.add(const OsintFinding(label: 'Archive Availability', value: 'Archived Snapshot Found ✅'));
-        findings.add(OsintFinding(label: 'Archive Date', value: readableDate));
-        findings.add(OsintFinding(label: 'Archive Link', value: archiveUrl, sourceUrl: archiveUrl));
+        String formatTimestamp(String ts) {
+          if (ts.length < 14) return ts;
+          return '${ts.substring(0, 4)}-${ts.substring(4, 6)}-${ts.substring(6, 8)} '
+              '${ts.substring(8, 10)}:${ts.substring(10, 12)}:${ts.substring(12, 14)}';
+        }
+
+        findings.add(const OsintFinding(label: 'Wayback Archive Status', value: 'Archived Snapshots Present ✅'));
+        findings.add(OsintFinding(label: 'First Snapshot', value: formatTimestamp(firstSnapshot)));
+        findings.add(OsintFinding(label: 'Latest Snapshot', value: formatTimestamp(latestSnapshot ?? firstSnapshot)));
+        findings.add(OsintFinding(label: 'Archival Age Indicator', value: ageIndicator));
       } else {
-        findings.add(const OsintFinding(label: 'Archive Availability', value: 'No archived snapshot found in Internet Archive.'));
-        findings.add(const OsintFinding(label: 'Warning', value: 'This might be a recently registered domain or unarchived page.'));
+        findings.add(const OsintFinding(label: 'Wayback Archive Status', value: 'No snapshots found.'));
+        findings.add(const OsintFinding(label: 'Age Indicator', value: 'New/Unarchived (Spoofing risk) ⚠️'));
         riskLevel = 'medium';
       }
 
@@ -481,7 +525,7 @@ class ThreatIntelService {
         analyzedAt: DateTime.now(),
       );
     } catch (e) {
-      debugPrint('Wayback Machine lookup failed: $e');
+      debugPrint('Wayback Machine check failed: $e');
       return OsintResult.error(
         OsintQueryType.url,
         url,

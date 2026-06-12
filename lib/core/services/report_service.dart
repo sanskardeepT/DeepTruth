@@ -6,6 +6,8 @@ import '../models/check_result.dart';
 import '../models/impact_result.dart';
 import '../models/report_model.dart';
 import '../utils/report_generator.dart';
+import '../utils/image_card_generator.dart';
+import 'firebase_service.dart';
 
 class ReportService {
   ReportService._();
@@ -28,6 +30,17 @@ class ReportService {
       final file     = File('${dir.path}/${report.reportId}.pdf');
       await file.writeAsBytes(pdfBytes);
 
+      // Generate PNG Image Card
+      String? imagePath;
+      try {
+        final cardBytes = ImageCardGenerator.generateCard(checkResult);
+        final imgFile   = File('${dir.path}/card_${report.reportId}.png');
+        await imgFile.writeAsBytes(cardBytes);
+        imagePath = imgFile.path;
+      } catch (e) {
+        debugPrint('Failed to generate image card during share: $e');
+      }
+
       final updatedReport = report.copyWith(pdfLocalPath: file.path);
 
       final shareText = '🚨 DeepTruth Trust Verification Card\n\n'
@@ -36,11 +49,25 @@ class ReportService {
           'Timestamp: ${checkResult.analyzedAt.toLocal().toString().substring(0, 19)}\n\n'
           'Expose fakes and trace OSINT using DeepTruth: https://deeptruth.app/verify/${report.reportId}';
 
+      final filesToShare = <XFile>[XFile(file.path)];
+      if (imagePath != null) {
+        filesToShare.add(XFile(imagePath));
+      }
+
       await Share.shareXFiles(
-        [XFile(file.path)],
+        filesToShare,
         subject: 'DeepTruth Verified Intelligence Report — ${report.reportId}',
         text: shareText,
       );
+
+      // Track share in analytics
+      try {
+        await FirebaseService.instance.logEvent('report_shared', {
+          'reportId': report.reportId,
+          'verdict': checkResult.verdict,
+          'score': checkResult.truthScore,
+        });
+      } catch (_) {}
 
       return updatedReport;
     } catch (e) {
@@ -64,9 +91,31 @@ class ReportService {
       final dir      = await getApplicationDocumentsDirectory();
       final file     = File('${dir.path}/${report.reportId}.pdf');
       await file.writeAsBytes(pdfBytes);
+
+      // Track export in analytics
+      try {
+        await FirebaseService.instance.logEvent('report_exported', {
+          'reportId': checkResult.reportId,
+          'contentType': checkResult.contentType,
+        });
+      } catch (_) {}
+
       return file.path;
     } catch (e) {
       debugPrint('generatePdfPath failed: $e');
+      return null;
+    }
+  }
+
+  Future<String?> generateImageCardPath(CheckResult checkResult) async {
+    try {
+      final cardBytes = ImageCardGenerator.generateCard(checkResult);
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File('${dir.path}/card_${checkResult.reportId}.png');
+      await file.writeAsBytes(cardBytes);
+      return file.path;
+    } catch (e) {
+      debugPrint('generateImageCardPath failed: $e');
       return null;
     }
   }

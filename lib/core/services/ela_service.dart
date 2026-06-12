@@ -30,12 +30,11 @@ class ElaService {
   static const int _recompressQuality = 75;
 
   /// Analyze an image file for compression manipulation artifacts.
-  Future<OsintResult> analyzeELA(String filePath) async {
+  Future<ElaAnalysisResult> analyzeELA(String filePath) async {
     try {
       final file = File(filePath);
       if (!await file.exists()) {
-        return OsintResult.error(
-          OsintQueryType.image,
+        return ElaAnalysisResult.error(
           filePath,
           'File does not exist at path.',
         );
@@ -43,8 +42,7 @@ class ElaService {
 
       final originalBytes = await file.readAsBytes();
       if (originalBytes.isEmpty) {
-        return OsintResult.error(
-          OsintQueryType.image,
+        return ElaAnalysisResult.error(
           filePath,
           'File is empty (0 bytes).',
         );
@@ -53,8 +51,7 @@ class ElaService {
       // Decode the original image
       final originalImage = img.decodeImage(originalBytes);
       if (originalImage == null) {
-        return OsintResult.error(
-          OsintQueryType.image,
+        return ElaAnalysisResult.error(
           filePath,
           'Could not decode image. Unsupported format.',
         );
@@ -100,15 +97,21 @@ class ElaService {
       // Determine verdict
       String verdict;
       String riskLevel;
+      double confidence = 90.0;
+
       if (result.anomalyPercent > 15.0) {
         verdict = 'MANIPULATION_LIKELY';
         riskLevel = 'high';
+        // Extreme values increase confidence
+        if (result.anomalyPercent > 30.0) confidence = 95.0;
       } else if (result.anomalyPercent > 5.0) {
         verdict = 'PROCESSING_DETECTED';
         riskLevel = 'medium';
+        confidence = 75.0; // border regions are less certain
       } else {
         verdict = 'LIKELY_ORIGINAL';
         riskLevel = 'low';
+        if (result.anomalyPercent < 2.0) confidence = 95.0;
       }
 
       findings.add(OsintFinding(label: 'ELA Verdict', value: verdict));
@@ -127,22 +130,58 @@ class ElaService {
             'No data leaves your device.',
       ));
 
-      return OsintResult(
+      return ElaAnalysisResult(
         queryType: OsintQueryType.image,
         query: filePath,
         findings: findings,
         sources: const ['DeepTruth On-Device ELA Engine'],
         riskLevel: riskLevel,
         analyzedAt: DateTime.now(),
+        anomalyScore: result.anomalyPercent,
+        verdict: verdict,
+        confidence: confidence,
       );
     } catch (e) {
       debugPrint('ELA analysis failed: $e');
-      return OsintResult.error(
-        OsintQueryType.image,
+      return ElaAnalysisResult.error(
         filePath,
         'ELA analysis failed: $e',
       );
     }
+  }
+}
+
+class ElaAnalysisResult extends OsintResult {
+  final double anomalyScore;
+  final String ELAverdict; // Named ELAverdict to avoid conflicts with super classes if any
+  final double ELAconfidence;
+
+  const ElaAnalysisResult({
+    required super.queryType,
+    required super.query,
+    required super.findings,
+    super.sources = const [],
+    required super.riskLevel,
+    super.error,
+    required super.analyzedAt,
+    required this.anomalyScore,
+    required String verdict,
+    required double confidence,
+  }) : ELAverdict = verdict,
+       ELAconfidence = confidence;
+
+  factory ElaAnalysisResult.error(String query, String message) {
+    return ElaAnalysisResult(
+      queryType: OsintQueryType.image,
+      query: query,
+      findings: const [],
+      riskLevel: 'unknown',
+      error: message,
+      analyzedAt: DateTime.now(),
+      anomalyScore: 0.0,
+      verdict: 'ERROR',
+      confidence: 0.0,
+    );
   }
 }
 

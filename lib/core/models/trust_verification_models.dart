@@ -231,6 +231,9 @@ class ConsensusScores {
     'justification':     justification,
     'adjustments':       adjustments,
   };
+
+  int get confidence => confidenceScore;
+  List<String> get evidenceBreakdown => adjustments.map((e) => "${e['category'].toString().toUpperCase()}: ${e['factor']}").toList();
 }
 
 class TrustGraphNode {

@@ -9,120 +9,96 @@ class ConsensusEngine {
     required ProvenanceResult provenance,
     required DeepfakeResult deepfake,
     required ReputationResult reputation,
+    double osintScore = 100.0,
+    double factCheckScore = 100.0,
   }) {
     final adjustments = <Map<String, dynamic>>[];
-    int authenticity = 50;
 
-    // C2PA Check
+    // 1. Provenance Vector (20%)
+    double provScore = 30.0;
+    String provFactor = 'Missing cryptographic manifest and EXIF headers';
     if (c2pa.hasC2PA) {
-      if (c2pa.verificationStatus == 'VERIFIED_ANCHORED_LTL') {
-        authenticity += 40;
-        adjustments.add({
-          'impact': 40,
-          'factor': 'Valid Verified C2PA Certificate Anchor',
-          'category': 'c2pa'
-        });
-      } else {
-        authenticity += 20;
-        adjustments.add({
-          'impact': 20,
-          'factor': 'Cryptographic C2PA Signature Detected',
-          'category': 'c2pa'
-        });
-      }
-    } else {
-      adjustments.add({
-        'impact': 0,
-        'factor': 'Unsigned Media (No C2PA Manifest)',
-        'category': 'c2pa'
-      });
+      provScore = 100.0;
+      provFactor = 'Verified cryptographic C2PA signature manifest present';
+    } else if (provenance.exif.isNotEmpty) {
+      provScore = 70.0;
+      provFactor = 'Consistent EXIF hardware metadata headers present';
     }
+    adjustments.add({
+      'impact': (provScore * 0.2).toInt(),
+      'factor': provFactor,
+      'category': 'provenance',
+    });
 
-    // Reputation Check
-    if (reputation.reputationScore >= 80) {
-      authenticity += 20;
-      adjustments.add({
-        'impact': 20,
-        'factor': 'High Publisher Reputation Rank (${reputation.domain})',
-        'category': 'reputation'
-      });
-    } else if (reputation.reputationScore < 40) {
-      authenticity -= 30;
-      adjustments.add({
-        'impact': -30,
-        'factor': 'Low/Unverified Publisher Trust Index (${reputation.domain})',
-        'category': 'reputation'
-      });
+    // 2. Reputation Vector (20%)
+    final double repScore = reputation.reputationScore.toDouble();
+    adjustments.add({
+      'impact': (repScore * 0.2).toInt(),
+      'factor': 'Publisher registry reputation score: ${repScore.toInt()}/100',
+      'category': 'reputation',
+    });
+
+    // 3. OSINT Vector (20%)
+    // Adjust OSINT score based on threat status
+    double finalOsintScore = osintScore;
+    if (deepfake.riskLevel == 'high' || deepfake.riskLevel == 'malicious') {
+      finalOsintScore = 10.0;
+    } else if (deepfake.riskLevel == 'medium' || deepfake.riskLevel == 'suspicious') {
+      finalOsintScore = 50.0;
     }
+    adjustments.add({
+      'impact': (finalOsintScore * 0.2).toInt(),
+      'factor': 'OSINT threat intelligence scan rating: ${finalOsintScore.toInt()}/100',
+      'category': 'osint',
+    });
 
-    // Metadata / EXIF Check
-    if (provenance.exif.isNotEmpty) {
-      authenticity += 10;
-      adjustments.add({
-        'impact': 10,
-        'factor': 'Consistent EXIF Hardware Header Metadata',
-        'category': 'metadata'
-      });
-    } else {
-      authenticity -= 5;
-      adjustments.add({
-        'impact': -5,
-        'factor': 'Missing or Stripped Camera EXIF tags',
-        'category': 'metadata'
-      });
-    }
+    // 4. Media Forensics Vector (20%)
+    final double forenScore = (100.0 - deepfake.deepfakeProbability).clamp(0.0, 100.0);
+    adjustments.add({
+      'impact': (forenScore * 0.2).toInt(),
+      'factor': 'On-device visual forensics score: ${forenScore.toInt()}/100',
+      'category': 'forensics',
+    });
 
-    // Deepfake Check
-    if (deepfake.deepfakeProbability > 70) {
-      authenticity -= 50;
-      adjustments.add({
-        'impact': -50,
-        'factor': 'High Deepfake Probability Matrix detected',
-        'category': 'deepfake'
-      });
-    } else if (deepfake.deepfakeProbability > 35) {
-      authenticity -= 20;
-      adjustments.add({
-        'impact': -20,
-        'factor': 'Moderate synthetic artifacts / GAN markers detected',
-        'category': 'deepfake'
-      });
-    } else {
-      authenticity += 10;
-      adjustments.add({
-        'impact': 10,
-        'factor': 'No significant Deepfake artifacts detected',
-        'category': 'deepfake'
-      });
-    }
+    // 5. Fact Check Evidence Vector (20%)
+    adjustments.add({
+      'impact': (factCheckScore * 0.2).toInt(),
+      'factor': 'Fact-checking citation verification index: ${factCheckScore.toInt()}/100',
+      'category': 'factcheck',
+    });
 
-    authenticity = authenticity.clamp(0, 100);
+    // Mathematical Trust Score Calculation (Weighted Sum)
+    final double computedTrust = (provScore * 0.2) + (repScore * 0.2) + (finalOsintScore * 0.2) + (forenScore * 0.2) + (factCheckScore * 0.2);
+    final trustScore = computedTrust.round().clamp(0, 100);
 
-    final manipulation = deepfake.deepfakeProbability.toInt();
-    final riskFactor = (provenance.reusedCount * 12).clamp(10, 100);
-    final risk = ((100 - authenticity) * (riskFactor / 100.0)).toInt().clamp(0, 100);
-    final trust = authenticity;
+    // Dynamic confidence score calculation based on sensor signals
+    int confidenceScore = 60;
+    if (c2pa.hasC2PA) confidenceScore += 15;
+    if (provenance.exif.isNotEmpty) confidenceScore += 10;
+    if (reputation.reputationScore > 50) confidenceScore += 15;
+    confidenceScore = confidenceScore.clamp(50, 100);
 
+    // Hard, mathematical verdicts
     String verdict = 'UNVERIFIED';
-    String justification = 'Insufficient data to compute consensus.';
+    String justification = 'Insufficient evidence to verify authenticity.';
 
-    if (trust >= 80) {
+    if (trustScore >= 80) {
       verdict = 'TRUE';
-      justification = 'The claim matches authenticated sources with verified metadata, containing no deepfake markers.';
-    } else if (trust >= 50) {
+      justification = 'Factual consistency confirmed. Dynamic verification math registers authentic origin with zero anomalies.';
+    } else if (trustScore >= 45) {
       verdict = 'MISLEADING';
-      justification = 'The content contains real elements but carries misleading omissions or lacks valid signature credentials.';
+      justification = 'Content contains structural anomalies, altered EXIF headers, or originates from an unverified domain.';
     } else {
       verdict = 'FALSE';
-      justification = 'High probability of manipulation detected. Digital forensic analysis reveals synthetic structural artifacts.';
+      justification = 'Critical warnings flagged. Forensics pipeline detects high manipulation anomalies.';
     }
 
     return ConsensusScores(
-      authenticityScore: authenticity,
-      trustScore: trust,
-      manipulationScore: manipulation,
-      riskScore: risk,
-      confidenceScore: 92,
+      authenticityScore: provScore.toInt(),
+      trustScore: trustScore,
+      manipulationScore: deepfake.deepfakeProbability.toInt(),
+      riskScore: (100 - trustScore),
+      confidenceScore: confidenceScore,
       verdict: verdict,
       justification: justification,
       adjustments: adjustments,

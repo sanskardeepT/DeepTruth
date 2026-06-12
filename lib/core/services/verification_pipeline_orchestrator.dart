@@ -19,6 +19,7 @@ import 'threat_intel_service.dart';
 import 'reverse_image_service.dart';
 import 'gemini_service.dart';
 import 'fact_check_service.dart';
+import 'firebase_service.dart';
 
 class VerificationPipelineOrchestrator {
   VerificationPipelineOrchestrator._();
@@ -109,6 +110,15 @@ class VerificationPipelineOrchestrator {
     } catch (e) {
       debugPrint('Saving to Evidence Vault failed: $e');
     }
+
+    // Track completed scan in analytics
+    try {
+      await FirebaseService.instance.logFactCheck(result.verdict, result.truthScore);
+      await FirebaseService.instance.logEvent('scan_completed', {
+        'inputType': inputType,
+        'hash': hash,
+      });
+    } catch (_) {}
 
     return result;
   }
@@ -376,6 +386,14 @@ class VerificationPipelineOrchestrator {
       await _firestore.collection('evidence_vault').doc(sha256Hash).update({
         'feedbackCount.$field': FieldValue.increment(1),
       });
+
+      // Track feedback in analytics
+      try {
+        await FirebaseService.instance.logEvent('feedback_submitted', {
+          'reportId': reportId,
+          'feedback': feedback,
+        });
+      } catch (_) {}
 
       debugPrint('User feedback logged successfully for $sha256Hash');
     } catch (e) {
