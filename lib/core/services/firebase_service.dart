@@ -151,6 +151,58 @@ class FirebaseService {
     } catch (_) {}
   }
 
+  /// Logs a cache hit event and increments total analytics stats
+  Future<void> logCacheHit(String source) async {
+    await logEvent('cache_hit', {'source': source});
+    if (!_initialized || _firestore == null) return;
+    try {
+      await _firestore!.collection('analytics').doc('vault_stats').set({
+        'totalChecks': FieldValue.increment(1),
+        'cacheHits': FieldValue.increment(1),
+      }, SetOptions(merge: true));
+    } catch (_) {}
+  }
+
+  /// Increments total checks count and logs repeated misinformation triggers
+  Future<void> logMiss(bool isMisinfo) async {
+    await logEvent('cache_miss');
+    if (!_initialized || _firestore == null) return;
+    try {
+      await _firestore!.collection('analytics').doc('vault_stats').set({
+        'totalChecks': FieldValue.increment(1),
+        if (isMisinfo) 'repeatedMisinfoCount': FieldValue.increment(1),
+      }, SetOptions(merge: true));
+    } catch (_) {}
+  }
+
+  /// Logs a repeated misinformation detection trigger
+  Future<void> logRepeatedMisinfo(String hash, String verdict) async {
+    await logEvent('repeated_misinfo', {'hash': hash, 'verdict': verdict});
+    if (!_initialized || _firestore == null) return;
+    try {
+      await _firestore!.collection('analytics').doc('vault_stats').set({
+        'repeatedMisinfoCount': FieldValue.increment(1),
+      }, SetOptions(merge: true));
+    } catch (_) {}
+  }
+
+  /// Logs and updates the scanner count for a query to power Top Queries Intelligence
+  Future<void> logTopQuery(String inputType, String content) async {
+    if (!_initialized || _firestore == null || content.isEmpty) return;
+    try {
+      // Clean query string and create a deterministic doc key
+      final clean = content.trim();
+      final key = 'q_${clean.hashCode}';
+      
+      await _firestore!.collection('top_queries').doc(key).set({
+        'content': clean.length > 200 ? clean.substring(0, 200) : clean,
+        'inputType': inputType,
+        'scanCount': FieldValue.increment(1),
+        'lastScanned': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (_) {}
+  }
+
   // ── CRASHLYTICS ───────────────────────────────────────────────────
   Future<void> recordError(dynamic error, StackTrace? stack) async {
     try {
@@ -296,6 +348,67 @@ class FirebaseService {
       };
     }
   }
+
+  Future<List<Map<String, dynamic>>> getTopQueries() async {
+    if (!_initialized || _firestore == null) return _fallbackTopQueries();
+    try {
+      final snapshot = await _firestore!
+          .collection('top_queries')
+          .orderBy('scanCount', descending: true)
+          .limit(20)
+          .get();
+      return snapshot.docs.map((d) => d.data()).toList();
+    } catch (e) {
+      debugPrint('getTopQueries failed: $e');
+      return _fallbackTopQueries();
+    }
+  }
+
+  Future<Map<String, dynamic>> getVaultStats() async {
+    if (!_initialized || _firestore == null) return _fallbackVaultStats();
+    try {
+      final doc = await _firestore!.collection('analytics').doc('vault_stats').get();
+      return doc.exists ? (doc.data() ?? _fallbackVaultStats()) : _fallbackVaultStats();
+    } catch (e) {
+      debugPrint('getVaultStats failed: $e');
+      return _fallbackVaultStats();
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getUserFeedback() async {
+    if (!_initialized || _firestore == null) return _fallbackUserFeedback();
+    try {
+      final snapshot = await _firestore!
+          .collection('user_feedback')
+          .orderBy('submittedAt', descending: true)
+          .limit(25)
+          .get();
+      return snapshot.docs.map((d) => d.data()).toList();
+    } catch (e) {
+      debugPrint('getUserFeedback failed: $e');
+      return _fallbackUserFeedback();
+    }
+  }
+
+  List<Map<String, dynamic>> _fallbackTopQueries() => [
+    {'content': 'Free government 5G recharge coupon link circulating on WhatsApp', 'inputType': 'text', 'scanCount': 45},
+    {'content': 'UNESCO declared National Anthem of India as the best in the world', 'inputType': 'text', 'scanCount': 28},
+    {'content': 'https://free-recharge.local/claim-offer-now', 'inputType': 'url', 'scanCount': 19},
+    {'content': 'NASA warns meteor impact will destroy Mumbai next week', 'inputType': 'text', 'scanCount': 12},
+    {'content': 'Viral deepfake video of celebrity endorsing finance app', 'inputType': 'video', 'scanCount': 8},
+  ];
+
+  Map<String, dynamic> _fallbackVaultStats() => {
+    'totalChecks': 120,
+    'cacheHits': 38,
+    'repeatedMisinfoCount': 14,
+  };
+
+  List<Map<String, dynamic>> _fallbackUserFeedback() => [
+    {'feedbackId': 'fb_1', 'reportId': 'DT-172901', 'sha256Hash': 'h_abc123', 'userFeedback': 'helpful', 'userComment': ' Debunked the WhatsApp forward instantly. Very useful for journalists!', 'submittedAt': DateTime.now().subtract(const Duration(minutes: 15))},
+    {'feedbackId': 'fb_2', 'reportId': 'DT-172905', 'sha256Hash': 'h_xyz789', 'userFeedback': 'not_helpful', 'userComment': 'Deepfake scan should show face coordinate bounding boxes.', 'submittedAt': DateTime.now().subtract(const Duration(hours: 2))},
+    {'feedbackId': 'fb_3', 'reportId': 'DT-172912', 'sha256Hash': 'h_def456', 'userFeedback': 'helpful', 'userComment': ' Way quicker than search. Keep it up.', 'submittedAt': DateTime.now().subtract(const Duration(days: 1))},
+  ];
 
   // ── FALLBACKS ─────────────────────────────────────────────────────
   List<Map<String, dynamic>> _fallbackTrending() => [

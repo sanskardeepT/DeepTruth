@@ -151,6 +151,17 @@ class ReputationResult {
   final int verificationSuccess;
   final String transparency;
 
+  // Indian Trust Index Extensions
+  final String category; // State-controlled | Fact-checker | Mainstream Media | Satire | Unverified
+  final String biasLabel; // Left | Right | Center-Left | Center-Right | Neutral
+  final String historicalReliability; // High | Medium | Low
+
+  // Reputation History Engine Extensions
+  final int positiveVerifications;
+  final int negativeVerifications;
+  final int communityReports;
+  final String dynamicTrustEvolution; // Trend description, e.g. "STABLE", "DEGRADED", "IMPROVING"
+
   const ReputationResult({
     required this.domain,
     required this.reputationScore,
@@ -159,6 +170,13 @@ class ReputationResult {
     required this.manipulationIncidents,
     required this.verificationSuccess,
     required this.transparency,
+    this.category = 'Unverified',
+    this.biasLabel = 'Neutral',
+    this.historicalReliability = 'Medium',
+    this.positiveVerifications = 0,
+    this.negativeVerifications = 0,
+    this.communityReports = 0,
+    this.dynamicTrustEvolution = 'STABLE',
   });
 
   factory ReputationResult.fromJson(Map<String, dynamic> json) {
@@ -170,6 +188,13 @@ class ReputationResult {
       manipulationIncidents:   (json['manipulationIncidents'] as num?)?.toInt() ?? 0,
       verificationSuccess:     (json['verificationSuccess'] as num?)?.toInt() ?? 0,
       transparency:            json['transparency'] as String? ?? 'unknown',
+      category:                json['category'] as String? ?? 'Unverified',
+      biasLabel:               json['biasLabel'] as String? ?? 'Neutral',
+      historicalReliability:   json['historicalReliability'] as String? ?? 'Medium',
+      positiveVerifications:   (json['positiveVerifications'] as num?)?.toInt() ?? 0,
+      negativeVerifications:   (json['negativeVerifications'] as num?)?.toInt() ?? 0,
+      communityReports:        (json['communityReports'] as num?)?.toInt() ?? 0,
+      dynamicTrustEvolution:   json['dynamicTrustEvolution'] as String? ?? 'STABLE',
     );
   }
 
@@ -181,6 +206,13 @@ class ReputationResult {
     'manipulationIncidents':   manipulationIncidents,
     'verificationSuccess':     verificationSuccess,
     'transparency':            transparency,
+    'category':                category,
+    'biasLabel':               biasLabel,
+    'historicalReliability':   historicalReliability,
+    'positiveVerifications':   positiveVerifications,
+    'negativeVerifications':   negativeVerifications,
+    'communityReports':        communityReports,
+    'dynamicTrustEvolution':   dynamicTrustEvolution,
   };
 }
 

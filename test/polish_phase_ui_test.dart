@@ -5,6 +5,8 @@ import 'package:deeptruth/features/truth_lens/widgets/evidence_timeline.dart';
 import 'package:deeptruth/features/truth_lens/widgets/explainability_tree.dart';
 import 'package:deeptruth/core/models/check_result.dart';
 import 'package:deeptruth/core/models/trust_verification_models.dart';
+import 'package:deeptruth/core/engine/reputation_engine.dart';
+import 'package:deeptruth/core/engine/claim_memory_engine.dart';
 
 void main() {
   testWidgets('LegalCenterScreen builds and shows policies', (WidgetTester tester) async {
@@ -87,5 +89,28 @@ void main() {
     expect(find.text('85/100'), findsOneWidget);
     expect(find.text('VERDICT: TRUE'), findsOneWidget);
     expect(find.text('Verified cryptographic signature present'), findsOneWidget);
+  });
+
+  test('ReputationEngine returns expanded Indian Trust Index fields', () async {
+    final clean = await ReputationEngine.instance.evaluateDomain('pib.gov.in');
+    expect(clean.category, equals('State-controlled'));
+    expect(clean.biasLabel, equals('Neutral'));
+    expect(clean.historicalReliability, equals('High'));
+    expect(clean.positiveVerifications, greaterThan(0));
+    expect(clean.dynamicTrustEvolution, equals('STABLE'));
+  });
+
+  test('ClaimMemoryEngine similarity matching calculations', () {
+    final engine = ClaimMemoryEngine.instance;
+    final s1 = "This is a viral WhatsApp forward claim";
+    final s2 = "This is a viral WhatsApp forward claim";
+    final similarityExact = engine.calculateSimilarity(s1, s2);
+    expect(similarityExact, equals(1.0));
+
+    final similarityClose = engine.calculateSimilarity(s1, "This is a viral WhatsApp forward claim details");
+    expect(similarityClose, greaterThan(0.8));
+
+    final similarityFar = engine.calculateSimilarity(s1, "Apocalyptic meteor alert NASA");
+    expect(similarityFar, lessThan(0.4));
   });
 }

@@ -16,6 +16,7 @@ import '../engine/reputation_engine.dart';
 import '../engine/consensus_engine.dart';
 import '../engine/trust_graph_service.dart';
 import '../engine/verification_plugin.dart';
+import '../engine/claim_memory_engine.dart';
 import '../utils/hash_util.dart';
 import 'threat_intel_service.dart';
 import 'reverse_image_service.dart';
@@ -61,7 +62,26 @@ class VerificationPipelineOrchestrator {
       hash = await HashUtil.calculateSha256(Uint8List.fromList(originalContent.codeUnits));
     }
 
-    // 2. Check Local Hive Cache first (Offline Verification)
+    // 2. Check Claim Memory Engine for similar claims
+    if (inputType == 'text') {
+      onStageChanged?.call('Checking Claim Memory…');
+      try {
+        final match = await ClaimMemoryEngine.instance.findMatch(originalContent);
+        if (match != null) {
+          debugPrint('Claim Memory Hit for $originalContent');
+          await FirebaseService.instance.logCacheHit('claim_memory_hit');
+          if (match.verdict == 'FALSE') {
+            await FirebaseService.instance.logRepeatedMisinfo(hash, 'FALSE');
+          }
+          await _saveToLocalHistory(match);
+          return match;
+        }
+      } catch (e) {
+        debugPrint('Claim Memory check failed: $e');
+      }
+    }
+
+    // 3. Check Local Hive Cache first (Offline Verification)
     onStageChanged?.call('Checking local cache registry…');
     try {
       if (Hive.isBoxOpen(AppConstants.boxSettings)) {
@@ -71,6 +91,10 @@ class VerificationPipelineOrchestrator {
           debugPrint('Evidence Vault: Local Cache Hit for $hash');
           final decoded = jsonDecode(cachedJson) as Map<String, dynamic>;
           final cachedResult = CheckResult.fromJson(decoded);
+          await FirebaseService.instance.logCacheHit('local_cache_hit');
+          if (cachedResult.verdict == 'FALSE') {
+            await FirebaseService.instance.logRepeatedMisinfo(hash, 'FALSE');
+          }
           await _saveToLocalHistory(cachedResult);
           return cachedResult;
         }
@@ -79,7 +103,7 @@ class VerificationPipelineOrchestrator {
       debugPrint('Local Cache checking failed: $e');
     }
 
-    // 3. Check Cloud Evidence Vault for identical media de-duplication
+    // 4. Check Cloud Evidence Vault for identical media de-duplication
     onStageChanged?.call('Checking Cloud Evidence Vault…');
     try {
       final vaultDoc = await _firestore.collection('evidence_vault').doc(hash).get();
@@ -94,6 +118,11 @@ class VerificationPipelineOrchestrator {
 
         final checkResult = CheckResult.fromJson(data);
 
+        await FirebaseService.instance.logCacheHit('cloud_vault_hit');
+        if (checkResult.verdict == 'FALSE') {
+          await FirebaseService.instance.logRepeatedMisinfo(hash, 'FALSE');
+        }
+
         // Save back to local Hive cache & local history
         _cacheLocally(hash, checkResult);
         await _saveToLocalHistory(checkResult);
@@ -104,7 +133,7 @@ class VerificationPipelineOrchestrator {
       debugPrint('Cloud Evidence Vault check failed: $e');
     }
 
-    // 4. Cache Miss: Execute Verification Pipelines dynamically
+    // 5. Cache Miss: Execute Verification Pipelines dynamically
     CheckResult result;
 
     if (inputType == 'image') {
@@ -122,7 +151,11 @@ class VerificationPipelineOrchestrator {
     stopwatch.stop();
     final benchmarkDurationMs = stopwatch.elapsedMilliseconds;
 
-    // 5. Store completed audit record inside the Evidence Vault & local cache
+    // Track cache miss analytics
+    await FirebaseService.instance.logMiss(result.verdict == 'FALSE');
+    await FirebaseService.instance.logTopQuery(inputType, originalContent);
+
+    // 6. Store completed audit record inside the Evidence Vault & local cache
     onStageChanged?.call('Saving analysis results to Vault…');
     try {
       final resultJson = result.toJson();
@@ -139,6 +172,11 @@ class VerificationPipelineOrchestrator {
       await _firestore.collection('evidence_vault').doc(hash).set(resultJson);
       _cacheLocally(hash, result);
       await _saveToLocalHistory(result);
+      
+      // Also cache inside Claim Memory Engine for future matches
+      if (inputType == 'text') {
+        await ClaimMemoryEngine.instance.saveClaim(originalContent, result);
+      }
     } catch (e) {
       debugPrint('Saving to Evidence Vault failed: $e');
     }

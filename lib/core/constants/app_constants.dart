@@ -36,6 +36,7 @@ class AppConstants {
   static const String boxProfile   = 'user_profile';
   static const String boxOsint     = 'osint_rate';
   static const String boxSettings  = 'settings';
+  static const String boxClaimMemory = 'claim_memory';
 
   // ── NOTIFICATION IDs ──
   static const int notifMorning   = 1001;

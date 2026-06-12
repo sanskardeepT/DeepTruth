@@ -133,13 +133,12 @@ Return ONLY this valid JSON schema:
         if (text == null || text.isEmpty) continue;
 
         final parsedJson = jsonDecode(_cleanJson(text)) as Map<String, dynamic>;
-        final finalVerdict = parsedJson['verdict'] as String? ?? conRes.verdict;
         final finalExplanation = parsedJson['explanation'] as String? ?? conRes.justification;
 
         return CheckResult(
           originalContent: content,
-          truthScore: conRes.trustScore,
-          verdict: finalVerdict,
+          truthScore: conRes.trustScore, // Deterministic Consensus Score
+          verdict: conRes.verdict,       // Deterministic Consensus Verdict
           explanation: finalExplanation,
           missingContext: parsedJson['missingContext'] as String?,
           sources: (parsedJson['sources'] as List?)?.map((e) => e?.toString() ?? '').toList() ?? conRes.adjustments.map((a) => a['factor'] as String).toList(),

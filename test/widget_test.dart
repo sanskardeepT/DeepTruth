@@ -44,6 +44,7 @@ void main() {
       Hive.openBox<String>(AppConstants.boxProfile),
       Hive.openBox<String>(AppConstants.boxOsint),
       Hive.openBox<String>(AppConstants.boxSettings),
+      Hive.openBox<String>(AppConstants.boxClaimMemory),
     ]);
   });
 

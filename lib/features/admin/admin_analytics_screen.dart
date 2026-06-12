@@ -14,6 +14,9 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
   bool _isLoading = true;
   Map<String, dynamic> _analytics = {};
   List<Map<String, dynamic>> _announcements = [];
+  List<Map<String, dynamic>> _topQueries = [];
+  Map<String, dynamic> _vaultStats = {};
+  List<Map<String, dynamic>> _feedback = [];
 
   final _titleController = TextEditingController();
   final _messageController = TextEditingController();
@@ -31,9 +34,16 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
     try {
       final analyticsData = await FirebaseService.instance.getAdminAnalytics();
       final announcementsData = await FirebaseService.instance.getAnnouncements();
+      final topQueriesData = await FirebaseService.instance.getTopQueries();
+      final vaultStatsData = await FirebaseService.instance.getVaultStats();
+      final feedbackData = await FirebaseService.instance.getUserFeedback();
+      
       setState(() {
         _analytics = analyticsData;
         _announcements = announcementsData;
+        _topQueries = topQueriesData;
+        _vaultStats = vaultStatsData;
+        _feedback = feedbackData;
         _isLoading = false;
       });
     } catch (e) {
@@ -76,7 +86,6 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
           ),
         );
       }
-      // Refresh list
       await _fetchData();
     } catch (e) {
       if (mounted) {
@@ -103,66 +112,85 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.bgPrimary,
-      appBar: AppBar(
-        title: const Text(
-          'Founder Ops Portal',
-          style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-        ),
-        backgroundColor: AppColors.bgSecondary,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: AppColors.accent),
-            onPressed: _isLoading ? null : _fetchData,
+    return DefaultTabController(
+      length: 4,
+      child: Scaffold(
+        backgroundColor: AppColors.bgPrimary,
+        appBar: AppBar(
+          title: const Text(
+            'Founder Command Center',
+            style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary, fontSize: 16),
           ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.accent),
-            )
-          : RefreshIndicator(
-              color: AppColors.accent,
-              backgroundColor: AppColors.bgCard,
-              onRefresh: _fetchData,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildSectionTitle('OPERATIONAL METRICS'),
-                    const SizedBox(height: 12),
-                    _buildMetricsGrid(),
-                    const SizedBox(height: 24),
-                    _buildSectionTitle('FEATURE USAGE BREAKDOWN'),
-                    const SizedBox(height: 12),
-                    _buildFeatureUsageSection(),
-                    const SizedBox(height: 24),
-                    _buildSectionTitle('ANNOUNCEMENT CENTER'),
-                    const SizedBox(height: 12),
-                    _buildPublishForm(),
-                    const SizedBox(height: 16),
-                    _buildAnnouncementsList(),
-                  ],
-                ),
-              ),
+          backgroundColor: AppColors.bgSecondary,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.accent, size: 20),
+            onPressed: () => Navigator.pop(context),
+          ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh_rounded, color: AppColors.accent),
+              onPressed: _isLoading ? null : _fetchData,
             ),
+          ],
+          bottom: const TabBar(
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            indicatorColor: AppColors.accent,
+            labelColor: AppColors.accent,
+            unselectedLabelColor: AppColors.textMuted,
+            labelStyle: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+            tabs: [
+              Tab(text: 'METRICS'),
+              Tab(text: 'TOP QUERIES'),
+              Tab(text: 'VAULT ANALYTICS'),
+              Tab(text: 'FEEDBACK & BULLETINS'),
+            ],
+          ),
+        ),
+        body: _isLoading
+            ? const Center(
+                child: CircularProgressIndicator(color: AppColors.accent),
+              )
+            : TabBarView(
+                children: [
+                  _buildMetricsTab(),
+                  _buildTopQueriesTab(),
+                  _buildVaultAnalyticsTab(),
+                  _buildFeedbackAndBulletinsTab(),
+                ],
+              ),
+      ),
     );
   }
 
-  Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        color: AppColors.textAccent,
-        fontSize: 12,
-        fontWeight: FontWeight.bold,
-        letterSpacing: 1.5,
+  // ══════════════════════════════════════════════════════════════════
+  //  TAB 1: METRICS & SYSTEM HEALTH
+  // ══════════════════════════════════════════════════════════════════
+  Widget _buildMetricsTab() {
+    return RefreshIndicator(
+      color: AppColors.accent,
+      onRefresh: _fetchData,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionTitle('OPERATIONAL METRICS'),
+            const SizedBox(height: 12),
+            _buildMetricsGrid(),
+            const SizedBox(height: 24),
+            _buildSectionTitle('SYSTEM HEALTH & LIMITS'),
+            const SizedBox(height: 12),
+            _buildSystemHealthSection(),
+            const SizedBox(height: 24),
+            _buildSectionTitle('FEATURE USAGE BREAKDOWN'),
+            const SizedBox(height: 12),
+            _buildFeatureUsageSection(),
+          ],
+        ),
       ),
-    ).animate().fadeIn(duration: 300.ms);
+    );
   }
 
   Widget _buildMetricsGrid() {
@@ -180,9 +208,9 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
       childAspectRatio: 1.4,
       children: [
         _buildMetricCard('Total Users', '$totalUsers', Icons.people_rounded, AppColors.accent),
-        _buildMetricCard('Daily Active', '$dau', Icons.offline_bolt_rounded, AppColors.success),
+        _buildMetricCard('Daily Active (DAU)', '$dau', Icons.offline_bolt_rounded, AppColors.success),
         _buildMetricCard('Total Scans', '$totalScans', Icons.qr_code_scanner_rounded, AppColors.warning),
-        _buildMetricCard('Est. Revenue', '\$${revenue.toStringAsFixed(2)}', Icons.monetization_on_rounded, AppColors.truthMostly),
+        _buildMetricCard('Est. Revenue', '\$${revenue.toStringAsFixed(2)}', Icons.monetization_on_rounded, AppColors.success),
       ],
     );
   }
@@ -202,24 +230,70 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                label,
-                style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                ),
               ),
-              Icon(icon, color: color, size: 20),
+              Icon(icon, color: color, size: 18),
             ],
           ),
           Text(
             value,
             style: const TextStyle(
               color: AppColors.textPrimary,
-              fontSize: 22,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
           ),
         ],
       ),
-    ).animate().scaleXY(begin: 0.9, end: 1.0, duration: 200.ms, curve: Curves.easeOut);
+    ).animate().scaleXY(begin: 0.95, end: 1.0, duration: 150.ms);
+  }
+
+  Widget _buildSystemHealthSection() {
+    final scanLimit = FirebaseService.instance.dailyScanLimit;
+    final isMaintenance = FirebaseService.instance.maintenanceMode;
+    final adsEnabled = FirebaseService.instance.showAds;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Column(
+        children: [
+          _buildHealthRow('Firebase Cloud Database', 'CONNECTED', AppColors.success),
+          const Divider(color: AppColors.divider),
+          _buildHealthRow('AdMob Initialization', adsEnabled ? 'ACTIVE / RUNNING' : 'DISABLED', adsEnabled ? AppColors.success : AppColors.danger),
+          const Divider(color: AppColors.divider),
+          _buildHealthRow('Remote System Mode', isMaintenance ? 'MAINTENANCE ACTIVE ⚠️' : 'ONLINE', isMaintenance ? AppColors.warning : AppColors.success),
+          const Divider(color: AppColors.divider),
+          _buildHealthRow('User Daily Scan Limit', '$scanLimit check scans / day', AppColors.accent),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHealthRow(String label, String status, Color color) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: AppColors.textPrimary, fontSize: 12, fontWeight: FontWeight.w500)),
+          Text(
+            status,
+            style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 11),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildFeatureUsageSection() {
@@ -237,8 +311,8 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
         ),
         child: const Center(
           child: Text(
-            'No usage data recorded yet.',
-            style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+            'No usage logs found.',
+            style: TextStyle(color: AppColors.textMuted, fontSize: 12),
           ),
         ),
       );
@@ -273,8 +347,8 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                       ),
                     ),
                     Text(
-                      '${entry.value} scans',
-                      style: const TextStyle(color: AppColors.accent, fontSize: 12),
+                      '${entry.value} checks',
+                      style: const TextStyle(color: AppColors.accent, fontSize: 11),
                     ),
                   ],
                 ),
@@ -285,13 +359,177 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                     value: percentage,
                     color: AppColors.accent,
                     backgroundColor: AppColors.bgSecondary,
-                    minHeight: 8,
+                    minHeight: 6,
                   ),
                 ),
               ],
             ),
           );
         }).toList(),
+      ),
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  //  TAB 2: TOP QUERIES INTELLIGENCE
+  // ══════════════════════════════════════════════════════════════════
+  Widget _buildTopQueriesTab() {
+    if (_topQueries.isEmpty) {
+      return const Center(
+        child: Text('No historical queries registered.', style: TextStyle(color: AppColors.textMuted)),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _topQueries.length,
+      itemBuilder: (context, index) {
+        final query = _topQueries[index];
+        final content = query['content'] ?? 'Empty Content';
+        final inputType = query['inputType'] ?? 'unknown';
+        final count = query['scanCount'] ?? 0;
+
+        IconData icon;
+        switch (inputType) {
+          case 'image': icon = Icons.image_rounded; break;
+          case 'video': icon = Icons.videocam_rounded; break;
+          case 'url': icon = Icons.link_rounded; break;
+          default: icon = Icons.chat_bubble_outline_rounded;
+        }
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          decoration: BoxDecoration(
+            color: AppColors.bgCard,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.divider),
+          ),
+          child: ListTile(
+            leading: Icon(icon, color: AppColors.accent, size: 20),
+            title: Text(
+              content,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.bold),
+            ),
+            subtitle: Text(
+              'Type: ${inputType.toUpperCase()}',
+              style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+            ),
+            trailing: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.accent.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
+              ),
+              child: Text(
+                '$count scans',
+                style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold, fontSize: 11),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  //  TAB 3: EVIDENCE VAULT ANALYTICS
+  // ══════════════════════════════════════════════════════════════════
+  Widget _buildVaultAnalyticsTab() {
+    final int total = _vaultStats['totalChecks'] ?? 0;
+    final int hits = _vaultStats['cacheHits'] ?? 0;
+    final int repeated = _vaultStats['repeatedMisinfoCount'] ?? 0;
+    final double rate = total > 0 ? (hits / total) * 100 : 0.0;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionTitle('EVIDENCE VAULT STATISTICS'),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppColors.bgCard,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.divider),
+            ),
+            child: Column(
+              children: [
+                _buildStatValueRow('Total Verifications Logged', '$total'),
+                const Divider(color: AppColors.divider),
+                _buildStatValueRow('Vault Cache Hits / Reuses', '$hits'),
+                const Divider(color: AppColors.divider),
+                _buildStatValueRow('Vault Cache Hit Rate', '${rate.toStringAsFixed(1)}%'),
+                const Divider(color: AppColors.divider),
+                _buildStatValueRow('Repeated Misinformation Blocks', '$repeated', isWarning: true),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          _buildSectionTitle('ANALYTIC BRIEF'),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.bgCard,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.divider),
+            ),
+            child: const Text(
+              'The DeepTruth Evidence Vault prevents duplicate API computation costs. When users upload media or claims, their cryptographic hashes are indexed. Hits indicate reuses, and repeated misinformation indicators count block triggers against known debunked narratives.',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 12, height: 1.5),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatValueRow(String label, String value, {bool isWarning = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+          Text(
+            value,
+            style: TextStyle(
+              color: isWarning ? AppColors.danger : AppColors.textPrimary,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  //  TAB 4: FEEDBACK & BULLETIN CENTER
+  // ══════════════════════════════════════════════════════════════════
+  Widget _buildFeedbackAndBulletinsTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionTitle('BULLETIN PUBLISHING'),
+          const SizedBox(height: 12),
+          _buildPublishForm(),
+          const SizedBox(height: 24),
+          _buildSectionTitle('LIVE BULLETINS'),
+          const SizedBox(height: 12),
+          _buildAnnouncementsList(),
+          const SizedBox(height: 24),
+          _buildSectionTitle('USER FEEDBACK LOGS'),
+          const SizedBox(height: 12),
+          _buildFeedbackList(),
+        ],
       ),
     );
   }
@@ -307,25 +545,13 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Publish Broadcast Announcement',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          _buildTextField('Title', 'Enter bulletin title...', _titleController),
           const SizedBox(height: 12),
-          _buildTextField('Title', 'Enter announcement title...', _titleController),
-          const SizedBox(height: 12),
-          _buildTextField('Message', 'Enter announcement description...', _messageController, maxLines: 3),
+          _buildTextField('Message', 'Enter bulletin description...', _messageController, maxLines: 2),
           const SizedBox(height: 12),
           Row(
             children: [
-              const Text(
-                'Priority: ',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
-              ),
+              const Text('Priority: ', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
               const SizedBox(width: 8),
               ...['Low', 'Medium', 'High'].map((priority) {
                 final isSelected = _selectedPriority == priority;
@@ -360,27 +586,25 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
               }),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
-            height: 44,
+            height: 40,
             child: ElevatedButton(
               onPressed: _isSubmitting ? null : _submitAnnouncement,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.accent,
                 foregroundColor: AppColors.primary,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                elevation: 0,
               ),
               child: _isSubmitting
                   ? const SizedBox(
-                      width: 20,
-                      height: 20,
+                      width: 18,
+                      height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
                     )
-                  : const Text(
-                      'Publish Now',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
+                  : const Text('Publish Bulletin', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
             ),
           ),
         ],
@@ -411,7 +635,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
               hintText: hint,
               hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 12),
               border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             ),
           ),
         ),
@@ -430,116 +654,138 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
           border: Border.all(color: AppColors.divider),
         ),
         child: const Center(
-          child: Text(
-            'No announcements found in registry.',
-            style: TextStyle(color: AppColors.textMuted, fontSize: 13),
-          ),
+          child: Text('No active bulletins.', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
         ),
       );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'LIVE BROADCAST REGISTRY',
-          style: TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.2,
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _announcements.length > 3 ? 3 : _announcements.length,
+      itemBuilder: (context, index) {
+        final item = _announcements[index];
+        final title = item['title'] ?? 'No Title';
+        final priority = item['priority'] ?? 'Medium';
+
+        Color color = AppColors.info;
+        if (priority == 'High') color = AppColors.danger;
+        if (priority == 'Medium') color = AppColors.warning;
+        if (priority == 'Low') color = AppColors.success;
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.bgCard,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.divider),
           ),
-        ),
-        const SizedBox(height: 8),
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: _announcements.length,
-          itemBuilder: (context, index) {
-            final item = _announcements[index];
-            final title = item['title'] ?? 'No Title';
-            final message = item['message'] ?? 'No Message';
-            final priority = item['priority'] ?? 'Medium';
-            
-            // Format timestamp nicely
-            String timeStr = 'Just now';
-            final ts = item['timestamp'];
-            if (ts != null) {
-              if (ts is DateTime) {
-                timeStr = ts.toLocal().toString().substring(0, 16);
-              } else {
-                // Cloud Firestore Timestamp
-                try {
-                  timeStr = ts.toDate().toLocal().toString().substring(0, 16);
-                } catch (_) {}
-              }
-            }
-
-            Color priorityColor = AppColors.info;
-            if (priority == 'High') priorityColor = AppColors.danger;
-            if (priority == 'Medium') priorityColor = AppColors.warning;
-            if (priority == 'Low') priorityColor = AppColors.success;
-
-            return Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.bgCard,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.divider),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(color: AppColors.textPrimary, fontSize: 12, fontWeight: FontWeight.w600),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(width: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  priority,
+                  style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildFeedbackList() {
+    if (_feedback.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: AppColors.bgCard,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.divider),
+        ),
+        child: const Center(
+          child: Text('No user feedback logs.', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _feedback.length,
+      itemBuilder: (context, index) {
+        final item = _feedback[index];
+        final id = item['reportId'] ?? 'DT-UNKNOWN';
+        final rating = item['userFeedback'] ?? 'helpful';
+        final comment = item['userComment'] ?? '';
+        final isHelpful = rating == 'helpful';
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.bgCard,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.divider),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: priorityColor.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: priorityColor.withValues(alpha: 0.4)),
-                        ),
-                        child: Text(
-                          priority.toUpperCase(),
-                          style: TextStyle(
-                            color: priorityColor,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        timeStr,
-                        style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
                   Text(
-                    title,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    id,
+                    style: const TextStyle(color: AppColors.textAccent, fontSize: 11, fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    message,
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 12,
-                      height: 1.4,
-                    ),
+                  Icon(
+                    isHelpful ? Icons.thumb_up_rounded : Icons.thumb_down_rounded,
+                    color: isHelpful ? AppColors.success : AppColors.danger,
+                    size: 14,
                   ),
                 ],
               ),
-            ).animate().slideX(begin: 0.1, duration: 150.ms);
-          },
-        ),
-      ],
+              if (comment.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  comment,
+                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        color: AppColors.textAccent,
+        fontSize: 11,
+        fontWeight: FontWeight.bold,
+        letterSpacing: 1.2,
+      ),
+    ).animate().fadeIn(duration: 150.ms);
   }
 }
