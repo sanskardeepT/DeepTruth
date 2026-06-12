@@ -123,7 +123,7 @@ class ReverseImageService {
     try {
       final response = await model.generateContent([
         Content.multi([
-          const TextPart(prompt),
+          TextPart(prompt),
           DataPart('image/jpeg', imageBytes),
         ])
       ]).timeout(const Duration(seconds: 15));

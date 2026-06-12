@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
@@ -14,12 +15,13 @@ import '../engine/deepfake_engine.dart';
 import '../engine/reputation_engine.dart';
 import '../engine/consensus_engine.dart';
 import '../engine/trust_graph_service.dart';
+import '../engine/verification_plugin.dart';
 import '../utils/hash_util.dart';
 import 'threat_intel_service.dart';
 import 'reverse_image_service.dart';
-import 'gemini_service.dart';
 import 'fact_check_service.dart';
 import 'firebase_service.dart';
+import 'streak_service.dart';
 
 class VerificationPipelineOrchestrator {
   VerificationPipelineOrchestrator._();
@@ -29,6 +31,16 @@ class VerificationPipelineOrchestrator {
   final _firestore = FirebaseFirestore.instance;
   final _uuid = const Uuid();
 
+  // Modular verification plugins registry
+  final List<VerificationPlugin> _plugins = [
+    C2PaPlugin(),
+    ProvenancePlugin(),
+    DeepfakePlugin(),
+    ThreatIntelPlugin(),
+    FactCheckPlugin(),
+    ReverseImagePlugin(),
+  ];
+
   /// Main orchestration pipeline. Directs verification based on input type.
   /// Generates hashes and queries the Evidence Vault before executing real APIs.
   Future<CheckResult> verify({
@@ -37,13 +49,14 @@ class VerificationPipelineOrchestrator {
     Uint8List? fileBytes,
   }) async {
     final reportId = 'DT-${DateTime.now().millisecondsSinceEpoch}-${_uuid.v4().substring(0, 4)}';
+    final stopwatch = Stopwatch()..start();
 
-    // 1. Calculate SHA-256 for de-duplication
+    // 1. Calculate SHA-256 for de-duplication in background isolate
     String hash;
     if (fileBytes != null && fileBytes.isNotEmpty) {
-      hash = HashUtil.calculateSha256(fileBytes);
+      hash = await HashUtil.calculateSha256(fileBytes);
     } else {
-      hash = HashUtil.calculateSha256(Uint8List.fromList(originalContent.codeUnits));
+      hash = await HashUtil.calculateSha256(Uint8List.fromList(originalContent.codeUnits));
     }
 
     // 2. Check Local Hive Cache first (Offline Verification)
@@ -54,7 +67,9 @@ class VerificationPipelineOrchestrator {
         if (cachedJson != null) {
           debugPrint('Evidence Vault: Local Cache Hit for $hash');
           final decoded = jsonDecode(cachedJson) as Map<String, dynamic>;
-          return CheckResult.fromJson(decoded);
+          final cachedResult = CheckResult.fromJson(decoded);
+          await _saveToLocalHistory(cachedResult);
+          return cachedResult;
         }
       }
     } catch (e) {
@@ -75,8 +90,9 @@ class VerificationPipelineOrchestrator {
 
         final checkResult = CheckResult.fromJson(data);
 
-        // Save back to local Hive cache
+        // Save back to local Hive cache & local history
         _cacheLocally(hash, checkResult);
+        await _saveToLocalHistory(checkResult);
 
         return checkResult;
       }
@@ -99,14 +115,25 @@ class VerificationPipelineOrchestrator {
       throw ArgumentError('Invalid input type: $inputType');
     }
 
+    stopwatch.stop();
+    final benchmarkDurationMs = stopwatch.elapsedMilliseconds;
+
     // 5. Store completed audit record inside the Evidence Vault & local cache
     try {
       final resultJson = result.toJson();
       resultJson['reuseCount'] = 1; // Initial verification
       resultJson['sha256Hash'] = hash;
+      
+      // Expanded metadata fields for Product Hardening / ML dataset collection
+      resultJson['fileSizeBytes'] = fileBytes != null ? fileBytes.length : originalContent.codeUnits.length * 2;
+      resultJson['locale'] = Platform.localeName;
+      resultJson['devicePlatform'] = Platform.isAndroid ? 'android' : (Platform.isIOS ? 'ios' : 'desktop');
+      resultJson['anonymousId'] = StreakService.instance.anonymousId;
+      resultJson['benchmarkDurationMs'] = benchmarkDurationMs;
 
       await _firestore.collection('evidence_vault').doc(hash).set(resultJson);
       _cacheLocally(hash, result);
+      await _saveToLocalHistory(result);
     } catch (e) {
       debugPrint('Saving to Evidence Vault failed: $e');
     }
@@ -132,8 +159,37 @@ class VerificationPipelineOrchestrator {
     } catch (_) {}
   }
 
+  Future<void> _saveToLocalHistory(CheckResult result) async {
+    try {
+      if (Hive.isBoxOpen(AppConstants.boxChecks)) {
+        final box = Hive.box<String>(AppConstants.boxChecks);
+        await box.put(result.reportId, jsonEncode(result.toJson()));
+        debugPrint('Saved check to local history: ${result.reportId}');
+      }
+    } catch (e) {
+      debugPrint('Failed to save check to local history: $e');
+    }
+  }
+
+  /// Helper to execute plugins supporting a specific input type in parallel
+  Future<Map<String, dynamic>> _executePlugins(
+    String inputType,
+    String originalContent,
+    Uint8List? fileBytes,
+  ) async {
+    final activePlugins = _plugins.where((p) => p.supports(inputType)).toList();
+    final futures = activePlugins.map((p) => p.execute(originalContent, fileBytes));
+    final pluginResults = await Future.wait(futures);
+
+    final resultsMap = <String, dynamic>{};
+    for (int i = 0; i < activePlugins.length; i++) {
+      resultsMap[activePlugins[i].id] = pluginResults[i];
+    }
+    return resultsMap;
+  }
+
   // ══════════════════════════════════════════════════════════════════
-  //  IMAGE PIPELINE
+  //  IMAGE PIPELINE (Refactored to Plugins)
   // ══════════════════════════════════════════════════════════════════
   Future<CheckResult> _verifyImage(
     String filePath,
@@ -141,25 +197,16 @@ class VerificationPipelineOrchestrator {
     String hash,
     String reportId,
   ) async {
-    // Run all analysis modules in parallel
-    final c2paFuture = C2paEngine.instance.verifyAsset(filePath, bytes);
-    final provFuture = ProvenanceEngine.instance.analyzeAsset(filePath);
-    final dfFuture   = DeepfakeEngine.instance.scanAsset(filePath, bytes);
-    
-    final results = await Future.wait([c2paFuture, provFuture, dfFuture]);
-    final c2paRes = results[0] as C2PAResult;
-    final provRes = results[1] as ProvenanceResult;
-    final dfRes   = results[2] as DeepfakeResult;
+    // Run plugins in parallel
+    final resultsMap = await _executePlugins('image', filePath, bytes);
 
-    // Run reverse image search in parallel if bytes are present
-    OsintResult? reverseSearchRes;
-    if (bytes != null && bytes.isNotEmpty) {
-      try {
-        reverseSearchRes = await ReverseImageService.instance.scanReverseImage(bytes);
-      } catch (e) {
-        debugPrint('Reverse Image Search failed in pipeline: $e');
-      }
-    }
+    final c2paRes = resultsMap['c2pa'] as C2PAResult? ??
+        const C2PAResult(hasC2PA: false, trustScore: 0, verificationStatus: 'NOT_FOUND');
+    final provRes = resultsMap['provenance'] as ProvenanceResult? ??
+        const ProvenanceResult(reusedCount: 0);
+    final dfRes = resultsMap['deepfake'] as DeepfakeResult? ??
+        const DeepfakeResult(deepfakeProbability: 0.0, confidence: 100.0, riskLevel: 'unknown');
+    final reverseSearchRes = resultsMap['reverse_image'] as OsintResult?;
 
     // Extract domain from reverse image sources or EXIF/Provenance details
     final sourceDomain = provRes.sourceDomain ?? (reverseSearchRes?.findings.isNotEmpty == true ? 'unknown.com' : '');
@@ -197,6 +244,7 @@ class VerificationPipelineOrchestrator {
       analyzedAt: DateTime.now(),
       reportId: reportId,
       imagePath: filePath,
+      sha256Hash: hash,
       c2pa: c2paRes,
       provenance: provRes,
       deepfake: dfRes,
@@ -207,15 +255,25 @@ class VerificationPipelineOrchestrator {
   }
 
   // ══════════════════════════════════════════════════════════════════
-  //  URL / WEBSITE PIPELINE
+  //  URL / WEBSITE PIPELINE (Refactored to Plugins)
   // ══════════════════════════════════════════════════════════════════
   Future<CheckResult> _verifyUrl(
     String url,
     String hash,
     String reportId,
   ) async {
-    // Run threat intel (VirusTotal + URLScan.io + Wayback Machine)
-    final threatIntel = await ThreatIntelService.instance.fullUrlScan(url);
+    // Run threat intel plugin in parallel
+    final resultsMap = await _executePlugins('url', url, null);
+    final threatIntel = resultsMap['threat_intel'] as OsintResult? ??
+        OsintResult(
+          queryType: OsintQueryType.url,
+          query: url,
+          findings: const [],
+          sources: const ['Wayback Machine'],
+          riskLevel: 'low',
+          analyzedAt: DateTime.now(),
+        );
+        
     final repRes = await ReputationEngine.instance.evaluateDomain(url);
 
     // Default mock structures for fields not relevant to URL scanning
@@ -265,6 +323,7 @@ class VerificationPipelineOrchestrator {
       contentType: 'url',
       analyzedAt: DateTime.now(),
       reportId: reportId,
+      sha256Hash: hash,
       c2pa: c2pa,
       provenance: provenance,
       deepfake: dfRes,
@@ -275,17 +334,17 @@ class VerificationPipelineOrchestrator {
   }
 
   // ══════════════════════════════════════════════════════════════════
-  //  CLAIM / TEXT PIPELINE
+  //  CLAIM / TEXT PIPELINE (Refactored to Plugins)
   // ══════════════════════════════════════════════════════════════════
   Future<CheckResult> _verifyClaim(
     String claim,
     String hash,
     String reportId,
   ) async {
-    // 1. Search Google Fact Check Tools API
-    final factChecks = await FactCheckService.instance.search(claim);
+    // Run fact checking search plugin
+    final resultsMap = await _executePlugins('text', claim, null);
+    final factChecks = resultsMap['fact_check'] as List<Map<String, dynamic>>? ?? [];
     
-    // 2. Fetch context from Gemini
     CheckResult baseResult = CheckResult(
       originalContent: claim,
       truthScore: factChecks.isNotEmpty ? (factChecks[0]['rating'] == 'False' ? 10 : 80) : 50,
@@ -297,6 +356,7 @@ class VerificationPipelineOrchestrator {
       contentType: 'text',
       analyzedAt: DateTime.now(),
       reportId: reportId,
+      sha256Hash: hash,
     );
 
     // Merge Google Fact Check URLs into sources
@@ -304,7 +364,7 @@ class VerificationPipelineOrchestrator {
   }
 
   // ══════════════════════════════════════════════════════════════════
-  //  VIDEO / REEL PIPELINE (Launch-Ready Framework)
+  //  VIDEO / REEL PIPELINE (Refactored to Plugins)
   // ══════════════════════════════════════════════════════════════════
   Future<CheckResult> _verifyVideo(
     String filePath,
@@ -312,7 +372,11 @@ class VerificationPipelineOrchestrator {
     String hash,
     String reportId,
   ) async {
-    // Launch video pipeline parses metadata and executes Gemini temporal frame-level consistency checks
+    // Run deepfake verification plugin
+    final resultsMap = await _executePlugins('video', filePath, bytes);
+    final dfRes = resultsMap['deepfake'] as DeepfakeResult? ??
+        const DeepfakeResult(deepfakeProbability: 0.0, confidence: 100.0, riskLevel: 'unknown');
+
     const c2pa = C2PAResult(
       hasC2PA: false,
       trustScore: 0,
@@ -324,8 +388,6 @@ class VerificationPipelineOrchestrator {
       software: 'DeepTruth Native Video Parser v1',
     );
     
-    // Scan video context details if Gemini is configured
-    final dfRes = await DeepfakeEngine.instance.scanAsset(filePath, bytes);
     final repRes = await ReputationEngine.instance.evaluateDomain('video-upload.local');
 
     final conRes = ConsensusEngine.instance.calculate(
@@ -352,6 +414,7 @@ class VerificationPipelineOrchestrator {
       contentType: 'video',
       analyzedAt: DateTime.now(),
       reportId: reportId,
+      sha256Hash: hash,
       c2pa: c2pa,
       provenance: provenance,
       deepfake: dfRes,
@@ -383,9 +446,13 @@ class VerificationPipelineOrchestrator {
 
       // 2. Update totals inside the evidence_vault document
       final field = feedback == 'helpful' ? 'helpful' : 'notHelpful';
-      await _firestore.collection('evidence_vault').doc(sha256Hash).update({
-        'feedbackCount.$field': FieldValue.increment(1),
-      });
+      try {
+        await _firestore.collection('evidence_vault').doc(sha256Hash).update({
+          'feedbackCount.$field': FieldValue.increment(1),
+        });
+      } catch (_) {
+        // Vault entry might not exist yet if checking mock/unregistered asset
+      }
 
       // Track feedback in analytics
       try {

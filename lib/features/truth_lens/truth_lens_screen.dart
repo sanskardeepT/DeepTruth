@@ -1,8 +1,12 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:hive/hive.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/app_constants.dart';
 import '../../core/constants/app_strings.dart';
+import '../../core/models/check_result.dart';
 import '../../core/providers/check_provider.dart';
 import '../../widgets/ad_banner_widget.dart';
 import '../../widgets/app_error_widget.dart';
@@ -78,6 +82,7 @@ class _TruthLensScreenState extends State<TruthLensScreen> {
             ),
             const SizedBox(height: 24),
             _buildTips(),
+            _buildHistoryList(context, cp),
           ],
         );
 
@@ -238,4 +243,129 @@ class _TruthLensScreenState extends State<TruthLensScreen> {
       ],
     );
   }
+
+  List<CheckResult> _getHistory() {
+    try {
+      if (Hive.isBoxOpen(AppConstants.boxChecks)) {
+        final box = Hive.box<String>(AppConstants.boxChecks);
+        final list = <CheckResult>[];
+        for (final key in box.keys) {
+          final jsonStr = box.get(key);
+          if (jsonStr != null) {
+            final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+            list.add(CheckResult.fromJson(data));
+          }
+        }
+        list.sort((a, b) => b.analyzedAt.compareTo(a.analyzedAt));
+        return list;
+      }
+    } catch (e) {
+      debugPrint('Failed to load history: $e');
+    }
+    return [];
+  }
+
+  Widget _buildHistoryList(BuildContext context, CheckProvider cp) {
+    final history = _getHistory();
+    if (history.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 28),
+        const Text(
+          'RECENT VERIFICATIONS',
+          style: TextStyle(
+            color:        AppColors.textAccent,
+            fontSize:     11,
+            fontWeight:   FontWeight.bold,
+            letterSpacing:1.5,
+          ),
+        ),
+        const SizedBox(height: 12),
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: history.length > 5 ? 5 : history.length, // Cap history items on UI to 5
+          itemBuilder: (context, index) {
+            final item = history[index];
+            final scoreColor = AppColors.scoreColor(item.truthScore);
+            
+            IconData typeIcon;
+            if (item.contentType == 'image') {
+              typeIcon = Icons.image_rounded;
+            } else if (item.contentType == 'video') {
+              typeIcon = Icons.videocam_rounded;
+            } else if (item.contentType == 'url') {
+              typeIcon = Icons.link_rounded;
+            } else {
+              typeIcon = Icons.text_snippet_rounded;
+            }
+
+            final title = item.originalContent.startsWith('/') 
+                ? item.originalContent.split('/').last 
+                : item.originalContent;
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              decoration: BoxDecoration(
+                color: AppColors.bgCard,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.divider),
+              ),
+              child: ListTile(
+                onTap: () => cp.loadResult(item),
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.bgPrimary,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(typeIcon, color: AppColors.textSecondary, size: 20),
+                ),
+                title: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: Text(
+                  item.analyzedAt.toLocal().toString().substring(0, 16),
+                  style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: scoreColor.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: scoreColor.withValues(alpha: 0.3)),
+                      ),
+                      child: Text(
+                        '${item.truthScore}/100',
+                        style: TextStyle(
+                          color: scoreColor,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted, size: 16),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.1);
+  }
 }
+

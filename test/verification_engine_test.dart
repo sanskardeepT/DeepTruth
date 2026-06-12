@@ -85,9 +85,9 @@ void main() {
       expect(graph.nodes.any((n) => n.type == 'Campaign'), isTrue);
     });
 
-    test('HashUtil SHA-256 Hashing Verification', () {
+    test('HashUtil SHA-256 Hashing Verification', () async {
       final bytes = Uint8List.fromList('DeepTruth'.codeUnits);
-      final hash = HashUtil.calculateSha256(bytes);
+      final hash = await HashUtil.calculateSha256(bytes);
       // Expected SHA-256 of "DeepTruth"
       expect(hash, 'f96b4c292a908afcf26801cc655e8e8ce5a0fc689ed2666c1ea421d6e093fe81');
     });

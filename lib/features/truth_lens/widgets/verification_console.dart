@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/models/check_result.dart';
 import '../../../../core/models/impact_result.dart';
+import '../../../../core/services/verification_pipeline_orchestrator.dart';
 import '../../../../widgets/report_download_button.dart';
 import 'score_gauge.dart';
 import 'forensics_panel.dart';
@@ -27,6 +28,11 @@ class VerificationConsoleWidget extends StatefulWidget {
 class _VerificationConsoleWidgetState extends State<VerificationConsoleWidget>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+  
+  String? _userFeedback; // 'helpful' | 'not_helpful'
+  bool _feedbackSubmitted = false;
+  final _commentController = TextEditingController();
+  bool _isSubmittingFeedback = false;
 
   static const _tabTitles = [
     'System Verdict',
@@ -44,6 +50,7 @@ class _VerificationConsoleWidgetState extends State<VerificationConsoleWidget>
   @override
   void dispose() {
     _tabController.dispose();
+    _commentController.dispose();
     super.dispose();
   }
 
@@ -222,9 +229,181 @@ class _VerificationConsoleWidgetState extends State<VerificationConsoleWidget>
             );
           }),
         ],
+        _buildFeedbackWidget(),
       ],
     );
   }
+
+  Widget _buildFeedbackWidget() {
+    if (_feedbackSubmitted) {
+      return Container(
+        margin: const EdgeInsets.only(top: 20),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.success.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.check_circle_rounded, color: AppColors.success, size: 24),
+            SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Feedback Submitted!',
+                    style: TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'Thank you. Your feedback will help train future on-device ML models.',
+                    style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(top: 20),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Was this verification verdict accurate & helpful?',
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _userFeedback = 'helpful';
+                    });
+                  },
+                  icon: const Icon(Icons.thumb_up_rounded, size: 14),
+                  label: const Text('Yes, Helpful'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _userFeedback == 'helpful' ? AppColors.primary : AppColors.success,
+                    backgroundColor: _userFeedback == 'helpful' ? AppColors.success : Colors.transparent,
+                    side: BorderSide(
+                      color: _userFeedback == 'helpful' ? AppColors.success : AppColors.success.withValues(alpha: 0.4),
+                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _userFeedback = 'not_helpful';
+                    });
+                  },
+                  icon: const Icon(Icons.thumb_down_rounded, size: 14),
+                  label: const Text('No, Unhelpful'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _userFeedback == 'not_helpful' ? AppColors.primary : AppColors.danger,
+                    backgroundColor: _userFeedback == 'not_helpful' ? AppColors.danger : Colors.transparent,
+                    side: BorderSide(
+                      color: _userFeedback == 'not_helpful' ? AppColors.danger : AppColors.danger.withValues(alpha: 0.4),
+                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (_userFeedback != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.bgInput,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.divider),
+              ),
+              child: TextField(
+                controller: _commentController,
+                maxLines: 2,
+                style: const TextStyle(color: AppColors.textPrimary, fontSize: 12),
+                decoration: const InputDecoration(
+                  hintText: 'Any additional context or correction links? (Optional)',
+                  hintStyle: TextStyle(color: AppColors.textMuted, fontSize: 11),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.all(10),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 36,
+              child: ElevatedButton(
+                onPressed: _isSubmittingFeedback ? null : _submitFeedbackAction,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.accent,
+                  foregroundColor: AppColors.primary,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  elevation: 0,
+                ),
+                child: _isSubmittingFeedback
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                      )
+                    : const Text(
+                        'Submit Verification Rating',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _submitFeedbackAction() async {
+    if (_userFeedback == null) return;
+    setState(() => _isSubmittingFeedback = true);
+    
+    // Calculate fallback hash if consensus model is not filled (for claim scans)
+    final hash = widget.result.sha256Hash ?? 'unknown_hash';
+    
+    await VerificationPipelineOrchestrator.instance.submitFeedback(
+      reportId: widget.result.reportId,
+      sha256Hash: hash,
+      feedback: _userFeedback!,
+      comment: _commentController.text.trim(),
+    );
+
+    if (mounted) {
+      setState(() {
+        _isSubmittingFeedback = false;
+        _feedbackSubmitted = true;
+      });
+    }
+  }
+
 
   Widget _buildVerdictHeader(String verdict, int score) {
     Color color = AppColors.scoreColor(score);

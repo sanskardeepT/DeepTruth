@@ -14,6 +14,7 @@ class CheckResult {
   final DateTime analyzedAt;
   final String reportId;
   final String? imagePath;
+  final String? sha256Hash;
 
   // New Trust OS Modules
   final C2PAResult? c2pa;
@@ -37,6 +38,7 @@ class CheckResult {
     required this.analyzedAt,
     required this.reportId,
     this.imagePath,
+    this.sha256Hash,
     this.c2pa,
     this.provenance,
     this.deepfake,
@@ -74,6 +76,7 @@ class CheckResult {
       analyzedAt:          DateTime.tryParse(json['analyzedAt']?.toString() ?? '') ?? DateTime.now(),
       reportId:            json['reportId']           as String? ?? 'DT-UNKNOWN',
       imagePath:           json['imagePath']          as String?,
+      sha256Hash:          json['sha256Hash']         as String?,
       c2pa:                c2paObj,
       provenance:          provObj,
       deepfake:            dfObj,
@@ -97,6 +100,7 @@ class CheckResult {
     'analyzedAt':         analyzedAt.toIso8601String(),
     'reportId':           reportId,
     'imagePath':          imagePath,
+    'sha256Hash':         sha256Hash,
     'c2pa':                c2pa?.toJson(),
     'provenance':          provenance?.toJson(),
     'deepfake':            deepfake?.toJson(),

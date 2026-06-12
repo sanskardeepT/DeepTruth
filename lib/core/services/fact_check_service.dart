@@ -99,10 +99,19 @@ class FactCheckService {
       missingContext:      result.missingContext,
       sources:             allSources,
       manipulationTactics: result.manipulationTactics,
+      logicalFallacies:    result.logicalFallacies,
       manipulationScore:   result.manipulationScore,
       contentType:         result.contentType,
       analyzedAt:          result.analyzedAt,
       reportId:            result.reportId,
+      imagePath:           result.imagePath,
+      sha256Hash:          result.sha256Hash,
+      c2pa:                result.c2pa,
+      provenance:          result.provenance,
+      deepfake:            result.deepfake,
+      reputation:          result.reputation,
+      consensus:           result.consensus,
+      trustGraph:          result.trustGraph,
     );
   }
 }
