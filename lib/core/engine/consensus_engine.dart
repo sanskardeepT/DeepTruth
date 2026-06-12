@@ -19,14 +19,14 @@ class ConsensusEngine {
         authenticity += 40;
         adjustments.add({
           'impact': 40,
-          'factor': 'Valid C2PA Signature (Reuters Trust CA)',
+          'factor': 'Valid Verified C2PA Certificate Anchor',
           'category': 'c2pa'
         });
       } else {
         authenticity += 20;
         adjustments.add({
           'impact': 20,
-          'factor': 'C2PA Manifest Detected but Unverified Certificate',
+          'factor': 'Cryptographic C2PA Signature Detected',
           'category': 'c2pa'
         });
       }

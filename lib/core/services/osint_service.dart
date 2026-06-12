@@ -8,6 +8,7 @@ import 'package:image/image.dart' as img;
 import '../constants/api_keys.dart';
 import '../constants/app_constants.dart';
 import '../models/osint_result.dart';
+import 'ela_service.dart';
 import 'gemini_service.dart';
 
 class OsintService {
@@ -405,7 +406,7 @@ Return ONLY a valid JSON object:
       if (GeminiService.instance.isInitialized) {
         try {
           final model = GenerativeModel(
-            model: 'gemini-1.5-flash',
+            model: 'gemini-2.0-flash',
             apiKey: ApiKeys.gemini,
           );
           final response = await model.generateContent([
@@ -432,11 +433,31 @@ Return ONLY a valid JSON object:
       findings.add(OsintFinding(label: 'Anomaly Score', value: '$anomalyScore/100'));
       findings.add(OsintFinding(label: 'AI Forensic Summary', value: analysisSummary));
 
+      // ── Run ELA (on-device) and merge findings ─────────────────
+      try {
+        final elaResult = await ElaService.instance.analyzeELA(filePath);
+        if (!elaResult.hasError) {
+          findings.add(const OsintFinding(
+            label: '── ELA Analysis ──',
+            value: 'Error Level Analysis (On-Device)',
+          ));
+          findings.addAll(elaResult.findings);
+          // Escalate risk if ELA detects high manipulation
+          if (elaResult.riskLevel == 'high' && riskLevel != 'high') {
+            riskLevel = 'high';
+          } else if (elaResult.riskLevel == 'medium' && riskLevel == 'low') {
+            riskLevel = 'medium';
+          }
+        }
+      } catch (e) {
+        debugPrint('ELA analysis during image forensics failed: $e');
+      }
+
       return OsintResult(
         queryType:  OsintQueryType.image,
         query:      filePath,
         findings:   findings,
-        sources:    const ['On-device EXIF parser', 'DeepTruth AI Visual Forensics'],
+        sources:    const ['On-device EXIF parser', 'DeepTruth AI Visual Forensics', 'On-device ELA Engine'],
         riskLevel:  riskLevel,
         analyzedAt: DateTime.now(),
       );

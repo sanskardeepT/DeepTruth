@@ -36,21 +36,21 @@ class ReputationEngine {
         domain: clean.isEmpty ? 'unknown' : clean,
         reputationScore: 28,
         sourceReputationScore: 28,
-        historicalAccuracy: 32.1,
-        manipulationIncidents: 14,
-        verificationSuccess: 3,
-        transparency: 'POOR_OPAQUE',
+        historicalAccuracy: 28.0,
+        manipulationIncidents: 0,
+        verificationSuccess: 0,
+        transparency: 'POOR_SUSPICIOUS',
       );
     }
 
     return ReputationResult(
       domain: clean,
-      reputationScore: 70,
-      sourceReputationScore: 70,
-      historicalAccuracy: 80.5,
-      manipulationIncidents: 1,
-      verificationSuccess: 32,
-      transparency: 'MEDIUM_TRANSPARENT',
+      reputationScore: 50,
+      sourceReputationScore: 50,
+      historicalAccuracy: 50.0,
+      manipulationIncidents: 0,
+      verificationSuccess: 0,
+      transparency: 'UNVERIFIED',
     );
   }
 }

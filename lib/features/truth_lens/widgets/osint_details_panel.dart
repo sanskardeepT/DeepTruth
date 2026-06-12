@@ -83,7 +83,7 @@ class OsintDetailsPanel extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.share_arrival_rounded, color: AppColors.accent, size: 20),
+                  const Icon(Icons.trending_up, color: AppColors.accent, size: 20),
                   const SizedBox(width: 8),
                   const Expanded(
                     child: Text(

@@ -53,14 +53,14 @@ class ProvenanceEngine {
       }
 
       return ProvenanceResult(
-        firstAppearance: dateTime ?? DateTime.now().subtract(const Duration(days: 45)).toIso8601String(),
-        sourceDomain: 'reuters.com',
-        creator: cameraMake != null ? '$cameraMake Artist' : 'Unknown Artist',
-        reusedCount: 4,
-        earliestDate: dateTime ?? DateTime.now().subtract(const Duration(days: 45)).toIso8601String(),
+        firstAppearance: dateTime,
+        sourceDomain: null,
+        creator: null,
+        reusedCount: 0,
+        earliestDate: dateTime,
         exif: exifTags,
         gps: gpsInfo,
-        camera: cameraModel ?? (cameraMake != null ? '$cameraMake System' : null),
+        camera: cameraModel ?? cameraMake,
         software: software,
       );
     } catch (e) {

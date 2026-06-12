@@ -30,9 +30,16 @@ class ReportService {
 
       final updatedReport = report.copyWith(pdfLocalPath: file.path);
 
+      final shareText = '🚨 DeepTruth Trust Verification Card\n\n'
+          'Verdict: ${checkResult.verdict} ${checkResult.verdictEmoji}\n'
+          'Trust Score: ${checkResult.truthScore}/100\n'
+          'Timestamp: ${checkResult.analyzedAt.toLocal().toString().substring(0, 19)}\n\n'
+          'Expose fakes and trace OSINT using DeepTruth: https://deeptruth.app/verify/${report.reportId}';
+
       await Share.shareXFiles(
         [XFile(file.path)],
         subject: 'DeepTruth Verified Intelligence Report — ${report.reportId}',
+        text: shareText,
       );
 
       return updatedReport;

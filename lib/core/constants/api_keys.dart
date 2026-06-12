@@ -29,9 +29,15 @@ class ApiKeys {
 
   // ── FACT CHECK ────────────────────────────────────────
   static String get googleFactCheck => _getKey('google_fact_check', 'YOUR_FACT_CHECK_API_KEY');
+  static String get googleCseKey => _getKey('google_cse_key', 'YOUR_GOOGLE_CSE_KEY');
+  static String get googleCseId => _getKey('google_cse_cx', 'YOUR_GOOGLE_CSE_CX');
 
   // ── OSINT ─────────────────────────────────────────────
   static String get hibp => _getKey('hibp', 'YOUR_HIBP_API_KEY');
+
+  // ── THREAT INTEL ───────────────────────────────────────
+  static String get virusTotal => _getKey('virus_total', 'YOUR_VIRUSTOTAL_API_KEY');
+  static String get urlscan    => _getKey('urlscan', 'YOUR_URLSCAN_API_KEY');
 
   // ── ADMOB ─────────────────────────────────────────────
   static const String _testAppId          = 'ca-app-pub-3940256099942544~3347511713';

@@ -6,6 +6,7 @@ import 'package:deeptruth/core/engine/deepfake_engine.dart';
 import 'package:deeptruth/core/engine/reputation_engine.dart';
 import 'package:deeptruth/core/engine/consensus_engine.dart';
 import 'package:deeptruth/core/engine/trust_graph_service.dart';
+import 'package:deeptruth/core/utils/hash_util.dart';
 
 void main() {
   group('DeepTruth X Core Engines Test', () {
@@ -15,28 +16,26 @@ void main() {
       expect(res1.hasC2PA, isFalse);
       expect(res1.verificationStatus, 'NO_ASSET_DATA');
 
-      // Test 2: Bytes with 'c2pa' magic string should return verified
+      // Test 2: Bytes with 'c2pa' magic string should return verified status
       final testBytes = Uint8List.fromList('some random header c2pa signature content'.codeUnits);
       final res2 = await C2paEngine.instance.verifyAsset(null, testBytes);
       expect(res2.hasC2PA, isTrue);
-      expect(res2.creator, 'Reuters Editorial Desk');
-      expect(res2.trustScore, 95);
+      expect(res2.creator, isNull);
+      expect(res2.trustScore, 75);
     });
 
     test('Deepfake Engine Multimodal Risk Calculations', () async {
-      // Test 1: Scan general file bytes (should simulate general image risk)
+      // Test 1: Scan audio file (deterministic honest unknown)
+      final resAudio = await DeepfakeEngine.instance.scanAsset('test.mp3', Uint8List(10));
+      expect(resAudio.deepfakeProbability, 0.0);
+      expect(resAudio.riskLevel, 'unknown');
+      expect(resAudio.analysisNote, contains('Audio deepfake detection'));
+
+      // Test 2: Unconfigured Gemini key handling
       final dummyBytes = Uint8List.fromList('generic image bytes'.codeUnits);
       final res = await DeepfakeEngine.instance.scanAsset('test.png', dummyBytes);
-      expect(res.imageRisk, 12.4);
-      expect(res.videoRisk, 0.0);
-      expect(res.audioRisk, 0.0);
-      expect(res.riskLevel, 'low');
-
-      // Test 2: AI metadata strings should increase image risk
-      final aiBytes = Uint8List.fromList('Creator: Midjourney generated content'.codeUnits);
-      final resAI = await DeepfakeEngine.instance.scanAsset('test.png', aiBytes);
-      expect(resAI.imageRisk, 88.0);
-      expect(resAI.riskLevel, 'high');
+      expect(res.imageRisk, 0.0);
+      expect(res.riskLevel, 'unconfigured');
     });
 
     test('Publisher Reputation Engine Scoring', () async {
@@ -48,7 +47,7 @@ void main() {
       // Test 2: Suspicious domain
       final repRumors = await ReputationEngine.instance.evaluateDomain('http://viralrumors.blogspot.com');
       expect(repRumors.reputationScore, 28);
-      expect(repRumors.transparency, 'POOR_OPAQUE');
+      expect(repRumors.transparency, 'POOR_SUSPICIOUS');
     });
 
     test('Consensus Engine Math Scoring Calculations', () {
@@ -84,6 +83,13 @@ void main() {
       expect(graph.edges.length, 6);
       expect(graph.nodes.any((n) => n.type == 'Person'), isTrue);
       expect(graph.nodes.any((n) => n.type == 'Campaign'), isTrue);
+    });
+
+    test('HashUtil SHA-256 Hashing Verification', () {
+      final bytes = Uint8List.fromList('DeepTruth'.codeUnits);
+      final hash = HashUtil.calculateSha256(bytes);
+      // Expected SHA-256 of "DeepTruth"
+      expect(hash, 'f96b4c292a908afcf26801cc655e8e8ce5a0fc689ed2666c1ea421d6e093fe81');
     });
   });
 }

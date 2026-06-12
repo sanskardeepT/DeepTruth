@@ -1,4 +1,4 @@
-enum OsintQueryType { email, phone, username, ip, website, image }
+enum OsintQueryType { email, phone, username, ip, website, image, url }
 
 class OsintFinding {
   final String label;

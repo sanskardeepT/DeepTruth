@@ -44,14 +44,14 @@ class C2paEngine {
       }
 
       if (hasC2PAMarker) {
-        return C2PAResult(
+        return const C2PAResult(
           hasC2PA: true,
-          creator: 'Reuters Editorial Desk',
-          publisher: 'Reuters News Agency',
-          createdAt: DateTime.now().subtract(const Duration(minutes: 5)).toIso8601String(),
-          editedBy: const ['Crop', 'Color Adjust (Photoshop 2026)', 'Resize'],
-          trustScore: 95,
-          verificationStatus: 'VERIFIED_ANCHORED_LTL',
+          creator: null,
+          publisher: null,
+          createdAt: null,
+          editedBy: [],
+          trustScore: 75,
+          verificationStatus: 'C2PA_SIGNATURE_PRESENT',
         );
       }
 

@@ -104,6 +104,7 @@ class DeepfakeResult {
   final double videoRisk;
   final double audioRisk;
   final double multimodalRisk;
+  final String analysisNote;
 
   const DeepfakeResult({
     required this.deepfakeProbability,
@@ -113,6 +114,7 @@ class DeepfakeResult {
     this.videoRisk = 0.0,
     this.audioRisk = 0.0,
     this.multimodalRisk = 0.0,
+    this.analysisNote = '',
   });
 
   factory DeepfakeResult.fromJson(Map<String, dynamic> json) {
@@ -124,6 +126,7 @@ class DeepfakeResult {
       videoRisk:           (json['videoRisk'] as num?)?.toDouble() ?? 0.0,
       audioRisk:           (json['audioRisk'] as num?)?.toDouble() ?? 0.0,
       multimodalRisk:      (json['multimodalRisk'] as num?)?.toDouble() ?? 0.0,
+      analysisNote:        json['analysisNote'] as String? ?? '',
     );
   }
 
@@ -135,6 +138,7 @@ class DeepfakeResult {
     'videoRisk':           videoRisk,
     'audioRisk':           audioRisk,
     'multimodalRisk':      multimodalRisk,
+    'analysisNote':        analysisNote,
   };
 }
 

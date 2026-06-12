@@ -17,7 +17,7 @@ class ReportGenerator {
             'DeepTruth X',
             style: pw.TextStyle(
               fontSize: 80,
-              color: PdfColor.fromHex('#0A0E27').flatten().copyWith(alpha: 0.04),
+              color: const PdfColor(0.04, 0.055, 0.153, 0.04),
               fontWeight: pw.FontWeight.bold,
             ),
           ),
@@ -82,7 +82,7 @@ class ReportGenerator {
                 pw.SizedBox(height: 12),
                 pw.Text(
                   cr.explanation,
-                  style: pw.TextStyle(fontSize: 10, lineHeight: 1.4),
+                  style: const pw.TextStyle(fontSize: 10),
                 ),
                 pw.SizedBox(height: 16),
                 // Scores table breakdown
