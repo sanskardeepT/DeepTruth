@@ -34,6 +34,11 @@ class FirebaseService {
         'daily_scan_limit':   5,
         'cloud_gateway_url': 'https://us-central1-deeptruth-419b4.cloudfunctions.net',
         'use_cloud_gateway': false,
+        'app_version_required': '1.0.0',
+        'app_version_recommended': '1.0.0',
+        'update_changelog': '• Security layers hardened\n• Indian Trust Index expanded with Bayesian evaluation\n• Offline claim memory active\n• Deterministic consensus engine updates',
+        'emergency_shutdown': false,
+        'emergency_message': 'DeepTruth service is temporarily suspended due to emergency system upgrades. Please stand by.',
       });
       await _remoteConfig!.fetchAndActivate();
 
@@ -303,6 +308,46 @@ class FirebaseService {
       return _remoteConfig?.getInt('daily_scan_limit') ?? 5;
     } catch (_) {
       return 5;
+    }
+  }
+
+  String get requiredVersion {
+    try {
+      return _remoteConfig?.getString('app_version_required') ?? '1.0.0';
+    } catch (_) {
+      return '1.0.0';
+    }
+  }
+
+  String get recommendedVersion {
+    try {
+      return _remoteConfig?.getString('app_version_recommended') ?? '1.0.0';
+    } catch (_) {
+      return '1.0.0';
+    }
+  }
+
+  String get updateChangelog {
+    try {
+      return _remoteConfig?.getString('update_changelog') ?? '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  bool get emergencyShutdown {
+    try {
+      return _remoteConfig?.getBool('emergency_shutdown') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  String get emergencyMessage {
+    try {
+      return _remoteConfig?.getString('emergency_message') ?? '';
+    } catch (_) {
+      return '';
     }
   }
 

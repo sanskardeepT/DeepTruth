@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'core/constants/app_colors.dart';
+import 'core/constants/app_constants.dart';
 import 'core/constants/app_theme.dart';
 import 'core/providers/app_provider.dart';
 import 'core/providers/check_provider.dart';
 import 'core/providers/news_provider.dart';
 import 'core/providers/streak_provider.dart';
 import 'core/services/firebase_service.dart';
+import 'core/utils/version_utils.dart';
 import 'features/home/home_screen.dart';
+import 'features/home/widgets/update_screens.dart';
 import 'features/truth_lens/truth_lens_screen.dart';
 import 'features/trust_feed/trust_feed_screen.dart';
 import 'features/trace_iq/trace_iq_screen.dart';
@@ -42,9 +45,20 @@ class DeepTruthApp extends StatelessWidget {
               GlobalCupertinoLocalizations.delegate,
             ],
             supportedLocales: AppLocalizations.supportedLocales,
-            home: FirebaseService.instance.maintenanceMode
-                ? const MaintenanceScreen()
-                : const MainShell(),
+            home: !appProvider.isInitialized
+                ? const Scaffold(
+                    backgroundColor: AppColors.bgPrimary,
+                    body: Center(
+                      child: CircularProgressIndicator(color: AppColors.accent),
+                    ),
+                  )
+                : FirebaseService.instance.emergencyShutdown
+                    ? EmergencyShutdownScreen(message: FirebaseService.instance.emergencyMessage)
+                    : FirebaseService.instance.maintenanceMode
+                        ? const MaintenanceScreen()
+                        : VersionUtils.isVersionOlder(AppConstants.appVersion, FirebaseService.instance.requiredVersion)
+                            ? const ForceUpdateScreen()
+                            : const MainShell(),
           );
         },
       ),
@@ -61,6 +75,22 @@ class MainShell extends StatefulWidget {
 
 class MainShellState extends State<MainShell> {
   int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkSoftUpdate();
+    });
+  }
+
+  void _checkSoftUpdate() {
+    final current = AppConstants.appVersion;
+    final recommended = FirebaseService.instance.recommendedVersion;
+    if (VersionUtils.isVersionOlder(current, recommended)) {
+      SoftUpdateDialog.show(context, changelog: FirebaseService.instance.updateChangelog);
+    }
+  }
 
   void setIndex(int index) {
     if (mounted) setState(() => _currentIndex = index);

@@ -7,6 +7,7 @@ import 'package:deeptruth/core/models/trust_verification_models.dart';
 import 'package:deeptruth/core/engine/reputation_history_engine.dart';
 import 'package:deeptruth/core/engine/claim_memory_engine.dart';
 import 'package:deeptruth/core/services/firebase_service.dart';
+import 'package:deeptruth/core/utils/version_utils.dart';
 
 void main() {
   setUpAll(() async {
@@ -200,6 +201,17 @@ void main() {
       final serialized = result.toJson();
       expect(serialized['scanCount'], equals(12));
       expect(serialized['firstSeen'], isNotNull);
+    });
+
+    test('VersionUtils correctly compares semantic version strings', () {
+      expect(VersionUtils.isVersionOlder('1.0.0', '1.0.1'), isTrue);
+      expect(VersionUtils.isVersionOlder('1.0.0', '1.1.0'), isTrue);
+      expect(VersionUtils.isVersionOlder('1.0.0', '2.0.0'), isTrue);
+      expect(VersionUtils.isVersionOlder('1.0.0+1', '1.0.1'), isTrue);
+      expect(VersionUtils.isVersionOlder('1.0.5', '1.0.5'), isFalse);
+      expect(VersionUtils.isVersionOlder('1.1.0', '1.0.0'), isFalse);
+      expect(VersionUtils.isVersionOlder('2.0.0', '1.0.0'), isFalse);
+      expect(VersionUtils.isVersionOlder('1.0.1', '1.0.0'), isFalse);
     });
   });
 }

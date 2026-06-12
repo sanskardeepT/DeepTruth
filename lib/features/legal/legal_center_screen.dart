@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:hive/hive.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/app_constants.dart';
+import '../../core/services/firebase_service.dart';
 
 class LegalCenterScreen extends StatelessWidget {
   const LegalCenterScreen({super.key});
@@ -88,11 +93,233 @@ class LegalCenterScreen extends StatelessWidget {
               const SizedBox(height: 30),
               _buildBottomSupportCard(),
               const SizedBox(height: 20),
+              _buildComplianceActionPanel(context),
+              const SizedBox(height: 20),
             ],
           ),
         ),
       ),
     );
+  }
+
+  Widget _buildComplianceActionPanel(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.lock_reset_rounded, color: AppColors.accent, size: 20),
+              SizedBox(width: 8),
+              Text(
+                'GDPR / CCPA Privacy Control Center',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Exercise your right to be forgotten. You can purge your local search history or permanently delete your anonymous device profile below.',
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 12, height: 1.4),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _confirmAndPurgeData(context),
+                  icon: const Icon(Icons.delete_sweep_rounded, size: 16),
+                  label: const Text('Purge Scans'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.textPrimary,
+                    side: const BorderSide(color: AppColors.divider),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => _confirmAndDeleteAccount(context),
+                  icon: const Icon(Icons.no_accounts_rounded, size: 16),
+                  label: const Text('Delete Account'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.danger.withValues(alpha: 0.15),
+                    foregroundColor: AppColors.danger,
+                    shadowColor: Colors.transparent,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: const BorderSide(color: AppColors.danger, width: 0.5),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmAndPurgeData(BuildContext context) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.bgCard,
+        title: const Text('Purge Search History?', style: TextStyle(color: AppColors.textPrimary)),
+        content: const Text(
+          'This will delete all locally saved scan results and reset your limit counts. Do you wish to proceed?',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Purge All', style: TextStyle(color: AppColors.danger)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        if (Hive.isBoxOpen(AppConstants.boxChecks)) {
+          await Hive.box<String>(AppConstants.boxChecks).clear();
+        }
+        if (Hive.isBoxOpen(AppConstants.boxClaimMemory)) {
+          await Hive.box<String>(AppConstants.boxClaimMemory).clear();
+        }
+        
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+            'scanCountToday': 0,
+            'lastScanDate': '',
+          });
+        }
+        
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('All search logs and caches have been purged.'),
+              backgroundColor: AppColors.success,
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to purge data: $e'),
+              backgroundColor: AppColors.danger,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _confirmAndDeleteAccount(BuildContext context) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.bgCard,
+        title: const Text('Delete Account Permanently?', style: TextStyle(color: AppColors.textPrimary)),
+        content: const Text(
+          'This will purge your profile, streaks, and data from DeepTruth server systems. This action is irreversible. Proceed?',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete Account', style: TextStyle(color: AppColors.danger)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          final uid = user.uid;
+          
+          // Clear cloud user document
+          await FirebaseFirestore.instance.collection('users').doc(uid).delete();
+          
+          // Delete Firebase User identity
+          await user.delete();
+        }
+
+        // Clear local storage boxes
+        if (Hive.isBoxOpen(AppConstants.boxChecks)) {
+          await Hive.box<String>(AppConstants.boxChecks).clear();
+        }
+        if (Hive.isBoxOpen(AppConstants.boxClaimMemory)) {
+          await Hive.box<String>(AppConstants.boxClaimMemory).clear();
+        }
+        if (Hive.isBoxOpen(AppConstants.boxStreak)) {
+          await Hive.box<String>(AppConstants.boxStreak).clear();
+        }
+        
+        // Re-initialize a fresh anonymous session
+        await FirebaseService.instance.initialize();
+
+        if (context.mounted) {
+          showDialog<void>(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) => AlertDialog(
+              backgroundColor: AppColors.bgCard,
+              title: const Text('Identity Erased', style: TextStyle(color: AppColors.textPrimary)),
+              content: const Text(
+                'Your profile has been deleted and a fresh secure identity has been registered.',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(ctx); // Close dialog
+                    Navigator.pop(context); // Exit compliance center
+                  },
+                  child: const Text('OK', style: TextStyle(color: AppColors.accent)),
+                ),
+              ],
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Account deletion failed: $e. Try signing out and signing in again.'),
+              backgroundColor: AppColors.danger,
+            ),
+          );
+        }
+      }
+    }
   }
 
   Widget _buildIntroHeader() {

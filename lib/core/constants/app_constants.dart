@@ -1,6 +1,8 @@
 class AppConstants {
   AppConstants._();
 
+  static const String appVersion = '1.0.0';
+
   // ── CACHE ──
   static const Duration newsCacheTtl    = Duration(hours: 2);
   static const Duration checkCacheTtl   = Duration(minutes: 30);
