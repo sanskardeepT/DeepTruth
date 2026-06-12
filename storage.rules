@@ -7,8 +7,10 @@ service firebase.storage {
       // Allow read/download to verify assets
       allow read: if true;
       
-      // Allow write if file size is under 20MB and contentType is image or video
-      allow create: if request.resource.size < 20 * 1024 * 1024
+      // Allow write if authenticated, user is owner, file size is under 20MB, and contentType is image or video
+      allow create: if request.auth != null 
+                   && request.auth.uid == userId
+                   && request.resource.size < 20 * 1024 * 1024
                    && (request.resource.contentType.matches('image/.*') 
                    || request.resource.contentType.matches('video/.*'));
                    

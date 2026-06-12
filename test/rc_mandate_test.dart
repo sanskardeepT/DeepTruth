@@ -6,6 +6,7 @@ import 'package:deeptruth/core/models/check_result.dart';
 import 'package:deeptruth/core/models/trust_verification_models.dart';
 import 'package:deeptruth/core/engine/reputation_history_engine.dart';
 import 'package:deeptruth/core/engine/claim_memory_engine.dart';
+import 'package:deeptruth/core/services/firebase_service.dart';
 
 void main() {
   setUpAll(() async {
@@ -169,6 +170,36 @@ void main() {
       expect(result.verdict, equals('TRUE'));
       expect(result.manipulationScore, equals(10));
       expect(result.explanation, equals('Altered text narrative.'));
+    });
+
+    test('Anonymous Authentication and Rate Limit checking fallback', () async {
+      final isUnderLimit = await FirebaseService.instance.checkRateLimit();
+      expect(isUnderLimit, isTrue); // Should default to true if uninitialized
+    });
+
+    test('CheckResult supports V2 metadata fields parsing and serialization', () {
+      final mock = {
+        'originalContent': 'Claim content',
+        'truthScore': 80,
+        'verdict': 'TRUE',
+        'explanation': 'Explanation text',
+        'manipulationScore': 10,
+        'contentType': 'text',
+        'analyzedAt': DateTime.now().toIso8601String(),
+        'reportId': 'DT-MOCK-1',
+        'firstSeen': DateTime.now().subtract(const Duration(days: 3)).toIso8601String(),
+        'lastSeen': DateTime.now().toIso8601String(),
+        'scanCount': 12,
+      };
+
+      final result = CheckResult.fromJson(mock);
+      expect(result.firstSeen, isNotNull);
+      expect(result.lastSeen, isNotNull);
+      expect(result.scanCount, equals(12));
+
+      final serialized = result.toJson();
+      expect(serialized['scanCount'], equals(12));
+      expect(serialized['firstSeen'], isNotNull);
     });
   });
 }

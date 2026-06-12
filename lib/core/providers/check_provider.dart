@@ -61,7 +61,8 @@ class CheckProvider extends ChangeNotifier {
 
     final limit = FirebaseService.instance.dailyScanLimit;
     final todayCount = _getScansToday();
-    if (todayCount >= limit) {
+    final isUnderCloudLimit = await FirebaseService.instance.checkRateLimit();
+    if (todayCount >= limit || !isUnderCloudLimit) {
       _errorMessage = 'Daily scan limit of $limit reached. Please try again tomorrow!';
       _state = CheckState.error;
       notifyListeners();
@@ -148,6 +149,7 @@ class CheckProvider extends ChangeNotifier {
 
       // Increment daily scan count
       await _incrementScansToday();
+      await FirebaseService.instance.incrementRateLimit();
 
       _state = CheckState.done;
       notifyListeners();

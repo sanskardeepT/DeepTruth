@@ -1,10 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive/hive.dart';
+import 'package:dio/dio.dart';
 import '../constants/app_constants.dart';
 import 'notification_service.dart';
 
@@ -30,6 +32,8 @@ class FirebaseService {
         'maintenance_mode':   false,
         'announcement_banner': '',
         'daily_scan_limit':   5,
+        'cloud_gateway_url': 'https://us-central1-deeptruth-419b4.cloudfunctions.net',
+        'use_cloud_gateway': false,
       });
       await _remoteConfig!.fetchAndActivate();
 
@@ -60,6 +64,55 @@ class FirebaseService {
       }
 
       _initialized = true;
+
+      // Anonymous Authentication & User Document Initialization for rate limiting & retention
+      try {
+        final auth = FirebaseAuth.instance;
+        final credential = await auth.signInAnonymously();
+        final user = credential.user;
+        if (user != null && _firestore != null) {
+          final userRef = _firestore!.collection('users').doc(user.uid);
+          final snap = await userRef.get();
+          final now = DateTime.now();
+          if (!snap.exists) {
+            // New user activation
+            await userRef.set({
+              'uid': user.uid,
+              'createdAt': now.toIso8601String(),
+              'lastActive': now.toIso8601String(),
+              'lastScanDate': '',
+              'scanCountToday': 0,
+            });
+            await _analytics!.logEvent(name: 'user_activation', parameters: {'uid': user.uid});
+            debugPrint('New user activation recorded: ${user.uid}');
+          } else {
+            // Returning user retention check
+            final data = snap.data();
+            final createdAtStr = data?['createdAt'] as String?;
+            if (createdAtStr != null) {
+              final createdAt = DateTime.tryParse(createdAtStr) ?? now;
+              final daysSince = now.difference(createdAt).inDays;
+              await _analytics!.logEvent(name: 'user_retention_check', parameters: {
+                'uid': user.uid,
+                'daysSinceCreation': daysSince,
+              });
+              if (daysSince == 1) {
+                await _analytics!.logEvent(name: 'retention_d1');
+              } else if (daysSince >= 7 && daysSince < 8) {
+                await _analytics!.logEvent(name: 'retention_d7');
+              } else if (daysSince >= 30 && daysSince < 31) {
+                await _analytics!.logEvent(name: 'retention_d30');
+              }
+            }
+            await userRef.update({
+              'lastActive': now.toIso8601String(),
+            });
+            debugPrint('Returning user session recorded: ${user.uid}');
+          }
+        }
+      } catch (e) {
+        debugPrint('Firebase Auth & User Profile initialization failed: $e');
+      }
     } catch (e) {
       debugPrint('Firebase service init failed: $e');
     }
@@ -565,4 +618,87 @@ class FirebaseService {
     'sourceUrl': 'https://reutersinstitute.politics.ox.ac.uk',
     'category':  'Media Literacy',
   };
+
+  Future<bool> checkRateLimit() async {
+    if (!_initialized || _firestore == null) return true; // Offline fallback
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return true;
+    try {
+      final snap = await _firestore!.collection('users').doc(user.uid).get();
+      if (!snap.exists) return true;
+      final data = snap.data();
+      if (data == null) return true;
+      final lastScanDate = data['lastScanDate'] as String?;
+      final scanCountToday = (data['scanCountToday'] as num?)?.toInt() ?? 0;
+      final today = DateTime.now().toIso8601String().substring(0, 10);
+      final limit = dailyScanLimit;
+      if (lastScanDate == today && scanCountToday >= limit) {
+        return false;
+      }
+    } catch (_) {}
+    return true;
+  }
+
+  Future<void> incrementRateLimit() async {
+    if (!_initialized || _firestore == null) return;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      final today = DateTime.now().toIso8601String().substring(0, 10);
+      final ref = _firestore!.collection('users').doc(user.uid);
+      await _firestore!.runTransaction((transaction) async {
+        final snap = await transaction.get(ref);
+        if (snap.exists) {
+          final data = snap.data();
+          final lastScanDate = data?['lastScanDate'] as String?;
+          int count = (data?['scanCountToday'] as num?)?.toInt() ?? 0;
+          if (lastScanDate == today) {
+            count += 1;
+          } else {
+            count = 1;
+          }
+          transaction.update(ref, {
+            'lastScanDate': today,
+            'scanCountToday': count,
+          });
+        }
+      });
+    } catch (_) {}
+  }
+
+  Future<Map<String, dynamic>> callCloudGateway(String functionName, Map<String, dynamic> data) async {
+    final baseUrl = _remoteConfig?.getString('cloud_gateway_url') ?? 'https://us-central1-deeptruth-419b4.cloudfunctions.net';
+    final url = '$baseUrl/$functionName';
+    
+    String token = '';
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      token = await user?.getIdToken() ?? '';
+    } catch (_) {}
+
+    final dio = Dio(BaseOptions(
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 30),
+    ));
+
+    final response = await dio.post(
+      url,
+      data: {'data': data},
+      options: Options(
+        headers: {
+          'Content-Type': 'application/json',
+          if (token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+      ),
+    );
+
+    if (response.statusCode == 200) {
+      final resBody = response.data as Map<String, dynamic>;
+      return Map<String, dynamic>.from(resBody['result'] as Map);
+    } else {
+      throw Exception('Gateway error: ${response.statusCode} - ${response.data}');
+    }
+  }
+
+  bool get useCloudGateway => _remoteConfig?.getBool('use_cloud_gateway') ?? false;
 }

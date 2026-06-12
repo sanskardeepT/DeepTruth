@@ -138,16 +138,28 @@ class VerificationPipelineOrchestrator {
     // 5. Cache Miss: Execute Verification Pipelines dynamically
     CheckResult result;
 
-    if (inputType == 'image') {
-      result = await _verifyImage(originalContent, fileBytes, hash, reportId, onStageChanged);
-    } else if (inputType == 'url') {
-      result = await _verifyUrl(originalContent, hash, reportId, onStageChanged);
-    } else if (inputType == 'text') {
-      result = await _verifyClaim(originalContent, hash, reportId, onStageChanged);
-    } else if (inputType == 'video') {
-      result = await _verifyVideo(originalContent, fileBytes, hash, reportId, onStageChanged);
+    if (FirebaseService.instance.useCloudGateway) {
+      onStageChanged?.call('Routing check to Secure Cloud Gateway…');
+      try {
+        final localRep = await ReputationEngine.instance.evaluateDomain(inputType == 'url' ? originalContent : 'unknown');
+        final gatewayData = {
+          'hash': hash,
+          'inputType': inputType,
+          'content': originalContent,
+          'localResults': {
+            'reputationScore': localRep.reputationScore,
+            'forensicsScore': inputType == 'image' ? 70 : 100,
+          }
+        };
+
+        final response = await FirebaseService.instance.callCloudGateway('verifyContentGateway', gatewayData);
+        result = CheckResult.fromJson(response);
+      } catch (e) {
+        debugPrint('Cloud Gateway verifyContentGateway failed: $e. Falling back to local execution.');
+        result = await _executeLocalPipeline(inputType, originalContent, fileBytes, hash, reportId, onStageChanged);
+      }
     } else {
-      throw ArgumentError('Invalid input type: $inputType');
+      result = await _executeLocalPipeline(inputType, originalContent, fileBytes, hash, reportId, onStageChanged);
     }
 
     stopwatch.stop();
@@ -590,6 +602,27 @@ class VerificationPipelineOrchestrator {
       debugPrint('User feedback logged successfully for $sha256Hash');
     } catch (e) {
       debugPrint('Failed to submit user feedback: $e');
+    }
+  }
+
+  Future<CheckResult> _executeLocalPipeline(
+    String inputType,
+    String originalContent,
+    Uint8List? fileBytes,
+    String hash,
+    String reportId,
+    void Function(String)? onStageChanged,
+  ) async {
+    if (inputType == 'image') {
+      return _verifyImage(originalContent, fileBytes, hash, reportId, onStageChanged);
+    } else if (inputType == 'url') {
+      return _verifyUrl(originalContent, hash, reportId, onStageChanged);
+    } else if (inputType == 'text') {
+      return _verifyClaim(originalContent, hash, reportId, onStageChanged);
+    } else if (inputType == 'video') {
+      return _verifyVideo(originalContent, fileBytes, hash, reportId, onStageChanged);
+    } else {
+      throw ArgumentError('Invalid input type: $inputType');
     }
   }
 }

@@ -16,6 +16,9 @@ class CheckResult {
   final String reportId;
   final String? imagePath;
   final String? sha256Hash;
+  final DateTime? firstSeen;
+  final DateTime? lastSeen;
+  final int? scanCount;
 
   // New Trust OS Modules
   final C2PAResult? c2pa;
@@ -41,6 +44,9 @@ class CheckResult {
     required this.reportId,
     this.imagePath,
     this.sha256Hash,
+    this.firstSeen,
+    this.lastSeen,
+    this.scanCount,
     this.c2pa,
     this.provenance,
     this.deepfake,
@@ -111,6 +117,9 @@ class CheckResult {
       reportId:            json['reportId']           as String? ?? 'DT-UNKNOWN',
       imagePath:           json['imagePath']          as String?,
       sha256Hash:          json['sha256Hash']         as String?,
+      firstSeen:           json['firstSeen'] != null ? DateTime.tryParse(json['firstSeen'].toString()) : null,
+      lastSeen:            json['lastSeen'] != null ? DateTime.tryParse(json['lastSeen'].toString()) : null,
+      scanCount:           json['scanCount'] != null ? (json['scanCount'] as num).toInt() : (json['reuseCount'] != null ? (json['reuseCount'] as num).toInt() : null),
       c2pa:                c2paObj,
       provenance:          provObj,
       deepfake:            dfObj,
@@ -136,6 +145,9 @@ class CheckResult {
     'reportId':           reportId,
     'imagePath':          imagePath,
     'sha256Hash':         sha256Hash,
+    'firstSeen':          firstSeen?.toIso8601String(),
+    'lastSeen':           lastSeen?.toIso8601String(),
+    'scanCount':          scanCount,
     'c2pa':                c2pa?.toJson(),
     'provenance':          provenance?.toJson(),
     'deepfake':            deepfake?.toJson(),

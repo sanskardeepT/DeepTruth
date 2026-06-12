@@ -2,22 +2,41 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Helper functions for validating document structures
+    function isValidEvidence(data) {
+      return data.sha256Hash is string
+        && data.inputType is string
+        && data.verdict is string
+        && data.trustScore is int;
+    }
+
+    function isValidFeedback(data) {
+      return data.feedbackId is string
+        && data.sha256Hash is string
+        && data.userFeedback is string;
+    }
+
     // 1. Evidence Vault Collection
     // - Reads: Publicly readable so any installation can read cached hashes.
-    // - Writes: Allow authenticated uploader or fallback anonymous ID updates (incrementing reuse counts).
+    // - Writes: Allow authenticated uploader, validate fields.
     match /evidence_vault/{hash} {
       allow read: if true;
-      allow create: if request.resource.data.sha256Hash == hash;
-      allow update: if request.resource.data.sha256Hash == hash 
-                    && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reuseCount', 'lastSeen', 'helpfulCount', 'notHelpfulCount', 'feedbackCount', 'repeatedMisinfoCount']));
+      allow create: if request.auth != null 
+                    && request.resource.data.sha256Hash == hash
+                    && isValidEvidence(request.resource.data);
+      allow update: if request.auth != null 
+                    && request.resource.data.sha256Hash == hash 
+                    && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reuseCount', 'scanCount', 'lastSeen', 'helpfulCount', 'notHelpfulCount', 'feedbackCount', 'repeatedMisinfoCount']));
     }
 
     // 2. User Feedback Collection
     // - Reads: Blocked for general users; restricted to admin accounts.
-    // - Writes: Anyone can submit a rating/comment feedback item.
+    // - Writes: Authenticated users can submit a rating/comment feedback item, validate fields.
     match /user_feedback/{feedbackId} {
       allow read: if request.auth != null && request.auth.token.admin == true;
-      allow create: if request.resource.data.feedbackId == feedbackId;
+      allow create: if request.auth != null 
+                    && request.resource.data.feedbackId == feedbackId
+                    && isValidFeedback(request.resource.data);
     }
 
     // 3. Announcements Collection
@@ -29,26 +48,25 @@ service cloud.firestore {
     }
 
     // 4. Users (Active Sessions log)
-    // - Reads: Authenticated admin or owner.
-    // - Writes: Allow registration/updates matching the anonymous ID or User ID.
+    // - Reads & Writes: strictly restricted to the owning authenticated user.
     match /users/{userId} {
-      allow read, write: if true; // In production, replace with: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
     // 5. Top Queries
     // - Reads: Publicly readable.
-    // - Writes: Allow incrementing check count.
+    // - Writes: Allow authenticated users to increment check count.
     match /top_queries/{queryId} {
       allow read: if true;
-      allow create, update: if true;
+      allow create, update: if request.auth != null;
     }
 
     // 6. Analytics Stats (Vault statistics & system health)
     // - Reads: Publicly readable by Admin screen.
-    // - Writes: Allow updates to counters from clients.
+    // - Writes: Allow updates to counters from authenticated clients.
     match /analytics/{docId} {
       allow read: if true;
-      allow create, update: if true;
+      allow create, update: if request.auth != null;
     }
   }
 }
