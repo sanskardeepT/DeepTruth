@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
+import 'core/constants/app_colors.dart';
 import 'core/constants/app_theme.dart';
 import 'core/providers/app_provider.dart';
 import 'core/providers/check_provider.dart';
 import 'core/providers/news_provider.dart';
 import 'core/providers/streak_provider.dart';
+import 'core/services/firebase_service.dart';
 import 'features/home/home_screen.dart';
 import 'features/truth_lens/truth_lens_screen.dart';
 import 'features/trust_feed/trust_feed_screen.dart';
@@ -40,7 +42,9 @@ class DeepTruthApp extends StatelessWidget {
               GlobalCupertinoLocalizations.delegate,
             ],
             supportedLocales: AppLocalizations.supportedLocales,
-            home: const MainShell(),
+            home: FirebaseService.instance.maintenanceMode
+                ? const MaintenanceScreen()
+                : const MainShell(),
           );
         },
       ),
@@ -135,3 +139,115 @@ class MainShellState extends State<MainShell> {
     );
   }
 }
+
+class MaintenanceScreen extends StatefulWidget {
+  const MaintenanceScreen({super.key});
+
+  @override
+  State<MaintenanceScreen> createState() => _MaintenanceScreenState();
+}
+
+class _MaintenanceScreenState extends State<MaintenanceScreen> {
+  bool _isChecking = false;
+
+  Future<void> _checkStatus() async {
+    setState(() => _isChecking = true);
+    await context.read<AppProvider>().checkMaintenanceStatus();
+    if (mounted) {
+      setState(() => _isChecking = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.bgPrimary,
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Glowing Icon
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.accent.withValues(alpha: 0.1),
+                  border: Border.all(color: AppColors.accent, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.accent.withValues(alpha: 0.3),
+                      blurRadius: 20,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.construction_rounded,
+                  color: AppColors.accent,
+                  size: 40,
+                ),
+              ),
+              const SizedBox(height: 32),
+              // Title
+              const Text(
+                'Upgrades in Progress',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Subtitle
+              const Text(
+                'DeepTruth is undergoing essential database and forensic engine upgrades. We will be back shortly with faster verification speeds.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 14,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 40),
+              // Action Button
+              SizedBox(
+                width: 180,
+                height: 48,
+                child: ElevatedButton.icon(
+                  onPressed: _isChecking ? null : _checkStatus,
+                  icon: _isChecking
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.primary,
+                          ),
+                        )
+                      : const Icon(Icons.refresh_rounded),
+                  label: const Text(
+                    'Retry Connection',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.accent,
+                    foregroundColor: AppColors.primary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    elevation: 0,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+

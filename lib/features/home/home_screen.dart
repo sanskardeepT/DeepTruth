@@ -5,6 +5,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/providers/app_provider.dart';
 import '../../core/providers/streak_provider.dart';
+import '../../core/services/firebase_service.dart';
 import '../../widgets/ad_banner_widget.dart';
 import '../../app.dart';
 import 'widgets/daily_reality_card.dart';
@@ -30,6 +31,7 @@ class HomeScreen extends StatelessWidget {
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
                   _buildOfflineBanner(context),
+                  _buildAnnouncementBanner(context),
                   const SizedBox(height: 16),
                   const DailyRealityCard(),
                   const SizedBox(height: 20),
@@ -175,6 +177,84 @@ class HomeScreen extends StatelessWidget {
             ],
           ),
         ).animate().fadeIn().slideY(begin: -0.3);
+      },
+    );
+  }
+
+  Widget _buildAnnouncementBanner(BuildContext context) {
+    final bannerText = FirebaseService.instance.announcementBanner;
+    if (bannerText.isEmpty) return const SizedBox.shrink();
+
+    bool isDismissed = false;
+    return StatefulBuilder(
+      builder: (context, setState) {
+        if (isDismissed) return const SizedBox.shrink();
+        
+        return Container(
+          margin: const EdgeInsets.only(left: 16, right: 16, top: 16),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppColors.accent.withValues(alpha: 0.15),
+                AppColors.primaryLight.withValues(alpha: 0.8),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.accent.withValues(alpha: 0.4)),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.accent.withValues(alpha: 0.1),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('📢', style: TextStyle(fontSize: 18)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'ANNOUNCEMENT',
+                      style: TextStyle(
+                        color: AppColors.textAccent,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      bannerText,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 13,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close_rounded, color: AppColors.textMuted, size: 18),
+                onPressed: () {
+                  setState(() {
+                    isDismissed = true;
+                  });
+                },
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ),
+        ).animate().fadeIn().slideY(begin: -0.2);
       },
     );
   }

@@ -4,6 +4,7 @@ import 'package:hive/hive.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/services/gemini_service.dart';
+import '../../admin/admin_analytics_screen.dart';
 
 class SettingsDialog extends StatefulWidget {
   const SettingsDialog({super.key});
@@ -260,6 +261,40 @@ class _SettingsDialogState extends State<SettingsDialog> {
                 hint: 'Advanced OSINT email breach lookup',
                 controller: _hibpController,
                 isPassword: true,
+              ),
+              const SizedBox(height: 20),
+              const Divider(color: AppColors.divider),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AdminAnalyticsScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.admin_panel_settings_rounded, color: AppColors.accent),
+                  label: const Text(
+                    'Access Founder Ops Portal',
+                    style: TextStyle(
+                      color: AppColors.accent,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    backgroundColor: AppColors.accent.withValues(alpha: 0.08),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: const BorderSide(color: AppColors.accent, width: 0.5),
+                    ),
+                  ),
+                ),
               ),
               const SizedBox(height: 28),
               Row(

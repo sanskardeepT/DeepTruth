@@ -6,6 +6,8 @@ import '../services/firebase_service.dart';
 import '../utils/location_detector.dart';
 import '../utils/silent_profiler.dart';
 
+import '../services/streak_service.dart';
+
 class AppProvider extends ChangeNotifier {
   bool _isOnline = true;
   bool _isInitialized = false;
@@ -66,6 +68,11 @@ class AppProvider extends ChangeNotifier {
       _dailyReality  = await FirebaseService.instance.getDailyReality();
       _trendingChecks = await FirebaseService.instance.getTrendingChecks();
 
+      // Track session in Firestore DAU/WAU
+      try {
+        await FirebaseService.instance.trackUserSession(StreakService.instance.anonymousId);
+      } catch (_) {}
+
       // Start profiler session
       SilentProfiler.instance.onSessionStart();
 
@@ -82,6 +89,13 @@ class AppProvider extends ChangeNotifier {
     try {
       _dailyReality   = await FirebaseService.instance.getDailyReality();
       _trendingChecks = await FirebaseService.instance.getTrendingChecks();
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<void> checkMaintenanceStatus() async {
+    try {
+      await FirebaseService.instance.initialize();
       notifyListeners();
     } catch (_) {}
   }
