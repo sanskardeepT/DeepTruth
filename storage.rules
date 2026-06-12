@@ -1,0 +1,19 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // User upload files path
+    match /uploads/{userId}/{fileName} {
+      // Allow read/download to verify assets
+      allow read: if true;
+      
+      // Allow write if file size is under 20MB and contentType is image or video
+      allow create: if request.resource.size < 20 * 1024 * 1024
+                   && (request.resource.contentType.matches('image/.*') 
+                   || request.resource.contentType.matches('video/.*'));
+                   
+      // Prevent deletion or modification of existing evidence assets
+      allow update, delete: if false;
+    }
+  }
+}

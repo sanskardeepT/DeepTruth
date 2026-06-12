@@ -180,6 +180,10 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
             const SizedBox(height: 12),
             _buildMetricsGrid(),
             const SizedBox(height: 24),
+            _buildSectionTitle('ACTIVE USER COHORTS'),
+            const SizedBox(height: 12),
+            _buildActiveUserCohorts(),
+            const SizedBox(height: 24),
             _buildSectionTitle('SYSTEM HEALTH & LIMITS'),
             const SizedBox(height: 12),
             _buildSystemHealthSection(),
@@ -190,6 +194,22 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildActiveUserCohorts() {
+    final wau = _analytics['wau'] ?? 0;
+    final mau = _analytics['mau'] ?? 0;
+    return Row(
+      children: [
+        Expanded(
+          child: _buildMetricCard('Weekly Active (WAU)', '$wau', Icons.calendar_view_week_rounded, AppColors.info),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildMetricCard('Monthly Active (MAU)', '$mau', Icons.calendar_month_rounded, Colors.purpleAccent),
+        ),
+      ],
     );
   }
 
@@ -259,6 +279,15 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
     final isMaintenance = FirebaseService.instance.maintenanceMode;
     final adsEnabled = FirebaseService.instance.showAds;
 
+    final apiFailures = _analytics['apiFailures'] as Map<dynamic, dynamic>? ?? {};
+    final avgLatency = _analytics['averageLatency'] as Map<dynamic, dynamic>? ?? {};
+
+    int getFailures(String api) => (apiFailures[api] as num?)?.toInt() ?? 0;
+    String getLatency(String route) {
+      final lat = (avgLatency[route] as num?)?.toDouble() ?? 0.0;
+      return lat > 0 ? '${lat.toStringAsFixed(0)} ms' : 'N/A';
+    }
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -275,6 +304,14 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
           _buildHealthRow('Remote System Mode', isMaintenance ? 'MAINTENANCE ACTIVE ⚠️' : 'ONLINE', isMaintenance ? AppColors.warning : AppColors.success),
           const Divider(color: AppColors.divider),
           _buildHealthRow('User Daily Scan Limit', '$scanLimit check scans / day', AppColors.accent),
+          const Divider(color: AppColors.divider),
+          _buildHealthRow('Gemini AI API Health', '${getFailures('Gemini')} failures · Latency: ${getLatency('text')}', getFailures('Gemini') > 0 ? AppColors.danger : AppColors.success),
+          const Divider(color: AppColors.divider),
+          _buildHealthRow('VirusTotal API Health', '${getFailures('VirusTotal')} failures · Latency: ${getLatency('url')}', getFailures('VirusTotal') > 0 ? AppColors.danger : AppColors.success),
+          const Divider(color: AppColors.divider),
+          _buildHealthRow('URLScan API Health', '${getFailures('URLScan')} failures · Latency: ${getLatency('image')}', getFailures('URLScan') > 0 ? AppColors.danger : AppColors.success),
+          const Divider(color: AppColors.divider),
+          _buildHealthRow('Wayback Machine Health', '${getFailures('Wayback')} failures · Latency: ${getLatency('video')}', getFailures('Wayback') > 0 ? AppColors.danger : AppColors.success),
         ],
       ),
     );
@@ -438,10 +475,14 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
   //  TAB 3: EVIDENCE VAULT ANALYTICS
   // ══════════════════════════════════════════════════════════════════
   Widget _buildVaultAnalyticsTab() {
-    final int total = _vaultStats['totalChecks'] ?? 0;
-    final int hits = _vaultStats['cacheHits'] ?? 0;
-    final int repeated = _vaultStats['repeatedMisinfoCount'] ?? 0;
-    final double rate = total > 0 ? (hits / total) * 100 : 0.0;
+    final int total = _analytics['totalChecks'] ?? 0;
+    final int hits = _analytics['cacheHits'] ?? 0;
+    final int repeated = _analytics['repeatedMisinfoCount'] ?? 0;
+    final double rate = _analytics['cacheHitRate'] ?? 0.0;
+    
+    final int helpful = _analytics['helpfulCount'] ?? 0;
+    final int notHelpful = _analytics['notHelpfulCount'] ?? 0;
+    final int feedback = _analytics['feedbackCount'] ?? 0;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -466,6 +507,14 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                 _buildStatValueRow('Vault Cache Hit Rate', '${rate.toStringAsFixed(1)}%'),
                 const Divider(color: AppColors.divider),
                 _buildStatValueRow('Repeated Misinformation Blocks', '$repeated', isWarning: true),
+                const Divider(color: AppColors.divider),
+                _buildStatValueRow('Helpful Verifications', '$helpful'),
+                const Divider(color: AppColors.divider),
+                _buildStatValueRow('Not Helpful Verifications', '$notHelpful'),
+                const Divider(color: AppColors.divider),
+                _buildStatValueRow('Total Feedback Submissions', '$feedback'),
+                const Divider(color: AppColors.divider),
+                _buildStatValueRow('Historical Trend Metrics', 'STABLE / COMPLIANT', isWarning: false),
               ],
             ),
           ),

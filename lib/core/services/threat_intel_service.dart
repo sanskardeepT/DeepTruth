@@ -5,6 +5,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import '../constants/api_keys.dart';
 import '../constants/app_constants.dart';
 import '../models/osint_result.dart';
+import 'firebase_service.dart';
 
 /// Threat Intelligence service — VirusTotal + URLScan.io URL scanning.
 ///
@@ -191,6 +192,7 @@ class ThreatIntelService {
       );
     } catch (e) {
       debugPrint('VirusTotal scan failed: $e');
+      await FirebaseService.instance.logApiFailure('VirusTotal', e.toString());
       return OsintResult.error(
         OsintQueryType.url,
         url,
@@ -419,6 +421,7 @@ class ThreatIntelService {
       );
     } catch (e) {
       debugPrint('URLScan.io scan failed: $e');
+      await FirebaseService.instance.logApiFailure('URLScan', e.toString());
       return OsintResult.error(
         OsintQueryType.url,
         url,
@@ -526,6 +529,7 @@ class ThreatIntelService {
       );
     } catch (e) {
       debugPrint('Wayback Machine check failed: $e');
+      await FirebaseService.instance.logApiFailure('Wayback', e.toString());
       return OsintResult.error(
         OsintQueryType.url,
         url,

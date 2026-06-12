@@ -17,6 +17,7 @@ import '../engine/consensus_engine.dart';
 import '../engine/trust_graph_service.dart';
 import '../engine/verification_plugin.dart';
 import '../engine/claim_memory_engine.dart';
+import '../engine/reputation_history_engine.dart';
 import '../utils/hash_util.dart';
 import 'threat_intel_service.dart';
 import 'reverse_image_service.dart';
@@ -70,11 +71,11 @@ class VerificationPipelineOrchestrator {
         if (match != null) {
           debugPrint('Claim Memory Hit for $originalContent');
           await FirebaseService.instance.logCacheHit('claim_memory_hit');
-          if (match.verdict == 'FALSE') {
+          if (match.historicalVerdict == 'FALSE') {
             await FirebaseService.instance.logRepeatedMisinfo(hash, 'FALSE');
           }
-          await _saveToLocalHistory(match);
-          return match;
+          await _saveToLocalHistory(match.checkResult);
+          return match.checkResult;
         }
       } catch (e) {
         debugPrint('Claim Memory check failed: $e');
@@ -111,9 +112,10 @@ class VerificationPipelineOrchestrator {
         debugPrint('Evidence Vault: Cloud Cache Hit for $hash');
         final data = vaultDoc.data()!;
         
-        // Increment reuse count
+        // Increment reuse count and update lastSeen in Firestore
         await _firestore.collection('evidence_vault').doc(hash).update({
           'reuseCount': FieldValue.increment(1),
+          'lastSeen': DateTime.now().toIso8601String(),
         });
 
         final checkResult = CheckResult.fromJson(data);
@@ -151,16 +153,68 @@ class VerificationPipelineOrchestrator {
     stopwatch.stop();
     final benchmarkDurationMs = stopwatch.elapsedMilliseconds;
 
-    // Track cache miss analytics
+    // Track cache miss analytics & API latency
     await FirebaseService.instance.logMiss(result.verdict == 'FALSE');
     await FirebaseService.instance.logTopQuery(inputType, originalContent);
+    await FirebaseService.instance.logLatency(inputType, benchmarkDurationMs);
+
+    // Evolve dynamic domain reputation metric
+    try {
+      final domain = result.reputation?.domain ?? '';
+      if (domain.isNotEmpty && domain != 'unknown') {
+        await ReputationHistoryEngine.instance.recordVerification(domain, result.verdict);
+      } else if (inputType == 'url') {
+        await ReputationHistoryEngine.instance.recordVerification(originalContent, result.verdict);
+      }
+    } catch (e) {
+      debugPrint('Reputation update failed: $e');
+    }
 
     // 6. Store completed audit record inside the Evidence Vault & local cache
     onStageChanged?.call('Saving analysis results to Vault…');
     try {
       final resultJson = result.toJson();
-      resultJson['reuseCount'] = 1; // Initial verification
+      
+      // Load existing evidence from Firestore (if it exists) to dynamically update counts and firstSeen
+      String firstSeen = DateTime.now().toIso8601String();
+      int reuseCount = 1;
+      int repeatedMisinfoCount = result.verdict == 'FALSE' ? 1 : 0;
+      int feedbackCount = 0;
+      int helpfulCount = 0;
+      int notHelpfulCount = 0;
+
+      try {
+        final existingDoc = await _firestore.collection('evidence_vault').doc(hash).get();
+        if (existingDoc.exists) {
+          final existingData = existingDoc.data();
+          if (existingData != null) {
+            firstSeen = existingData['firstSeen'] as String? ?? firstSeen;
+            reuseCount = ((existingData['reuseCount'] as num?)?.toInt() ?? 0) + 1;
+            repeatedMisinfoCount = ((existingData['repeatedMisinfoCount'] as num?)?.toInt() ?? 0) + (result.verdict == 'FALSE' ? 1 : 0);
+            feedbackCount = (existingData['feedbackCount'] as num?)?.toInt() ?? 0;
+            helpfulCount = (existingData['helpfulCount'] as num?)?.toInt() ?? 0;
+            notHelpfulCount = (existingData['notHelpfulCount'] as num?)?.toInt() ?? 0;
+          }
+        }
+      } catch (e) {
+        debugPrint('Failed to load existing evidence vault record for hash: $e');
+      }
+
+      // Evidence Vault V2 Schema Fields
       resultJson['sha256Hash'] = hash;
+      resultJson['inputType'] = inputType;
+      resultJson['timestamp'] = DateTime.now().toIso8601String();
+      resultJson['firstSeen'] = firstSeen;
+      resultJson['lastSeen'] = DateTime.now().toIso8601String();
+      resultJson['verdict'] = result.verdict;
+      resultJson['trustScore'] = result.truthScore;
+      resultJson['evidenceSources'] = result.sources;
+      resultJson['feedbackCount'] = feedbackCount;
+      resultJson['helpfulCount'] = helpfulCount;
+      resultJson['notHelpfulCount'] = notHelpfulCount;
+      resultJson['reuseCount'] = reuseCount;
+      resultJson['repeatedMisinfoCount'] = repeatedMisinfoCount;
+      resultJson['historicalTrendMetrics'] = result.reputation?.dynamicTrustEvolution ?? 'STABLE';
       
       // Expanded metadata fields for Product Hardening / ML dataset collection
       resultJson['fileSizeBytes'] = fileBytes != null ? fileBytes.length : originalContent.codeUnits.length * 2;
@@ -511,11 +565,16 @@ class VerificationPipelineOrchestrator {
       });
 
       // 2. Update totals inside the evidence_vault document
-      final field = feedback == 'helpful' ? 'helpful' : 'notHelpful';
       try {
-        await _firestore.collection('evidence_vault').doc(sha256Hash).update({
-          'feedbackCount.$field': FieldValue.increment(1),
-        });
+        final updateData = <String, dynamic>{
+          'feedbackCount': FieldValue.increment(1),
+        };
+        if (feedback == 'helpful') {
+          updateData['helpfulCount'] = FieldValue.increment(1);
+        } else {
+          updateData['notHelpfulCount'] = FieldValue.increment(1);
+        }
+        await _firestore.collection('evidence_vault').doc(sha256Hash).update(updateData);
       } catch (_) {
         // Vault entry might not exist yet if checking mock/unregistered asset
       }

@@ -32,6 +32,7 @@ Future<void> main() async {
     Hive.openBox<String>(AppConstants.boxOsint),
     Hive.openBox<String>(AppConstants.boxSettings),
     Hive.openBox<String>(AppConstants.boxClaimMemory),
+    Hive.openBox<String>(AppConstants.boxReputationHistory),
   ]);
 
   // 4. Firebase — graceful failure allowed

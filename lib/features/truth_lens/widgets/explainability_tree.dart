@@ -11,6 +11,14 @@ class TrustScoreExplainabilityTree extends StatelessWidget {
   Widget build(BuildContext context) {
     final adjs = consensus.adjustments;
 
+    int getImpact(String category) {
+      final adj = adjs.firstWhere(
+        (a) => a['category'] == category,
+        orElse: () => <String, dynamic>{},
+      );
+      return (adj['impact'] as num?)?.toInt() ?? 0;
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -69,10 +77,108 @@ class TrustScoreExplainabilityTree extends StatelessWidget {
                     isLast: isLast,
                   );
                 }),
+              _buildWeightingBreakdown(
+                prov: getImpact('provenance'),
+                rep: getImpact('reputation'),
+                osint: getImpact('osint'),
+                foren: getImpact('forensics'),
+                fact: getImpact('factcheck'),
+              ),
             ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildWeightingBreakdown({
+    required int prov,
+    required int rep,
+    required int osint,
+    required int foren,
+    required int fact,
+  }) {
+    final total = prov + rep + osint + foren + fact;
+
+    Widget _buildProgressBar(String label, int score, Color color) {
+      final double percent = (score / 20.0).clamp(0.0, 1.0);
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(color: AppColors.textPrimary, fontSize: 11, fontWeight: FontWeight.w500),
+                ),
+                Text(
+                  '+$score / 20 pts (20% Weight)',
+                  style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: percent,
+                backgroundColor: AppColors.divider,
+                valueColor: AlwaysStoppedAnimation<Color>(color),
+                minHeight: 6,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(top: 16),
+      decoration: BoxDecoration(
+        color: AppColors.bgSecondary,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'EVIDENCE WEIGHTING BREAKDOWN',
+            style: TextStyle(
+              color: AppColors.textAccent,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.0,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _buildProgressBar('Provenance Vector', prov, Colors.blue),
+          _buildProgressBar('Publisher Reputation', rep, Colors.orange),
+          _buildProgressBar('OSINT Threat Index', osint, Colors.purple),
+          _buildProgressBar('Visual Forensics', foren, Colors.red),
+          _buildProgressBar('Fact Citation Index', fact, Colors.green),
+          const SizedBox(height: 12),
+          const Divider(color: AppColors.divider),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Total Contribution Score:',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              Text(
+                '$total / 100 pts',
+                style: const TextStyle(color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 

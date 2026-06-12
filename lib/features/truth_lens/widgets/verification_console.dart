@@ -10,6 +10,7 @@ import 'osint_details_panel.dart';
 import 'trust_graph_painter.dart';
 import 'evidence_timeline.dart';
 import 'explainability_tree.dart';
+import 'share_trust_card_sheet.dart';
 
 class VerificationConsoleWidget extends StatefulWidget {
   final CheckResult result;
@@ -93,9 +94,26 @@ class _VerificationConsoleWidgetState extends State<VerificationConsoleWidget>
               style: TextButton.styleFrom(foregroundColor: AppColors.textSecondary),
               onPressed: widget.onReset,
             ),
-            ReportDownloadButton(
-              checkResult: widget.result,
-              impactResult: widget.impact,
+            Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.share_rounded, color: AppColors.accent, size: 20),
+                  tooltip: 'Share Card',
+                  onPressed: () {
+                    showModalBottomSheet(
+                      context: context,
+                      backgroundColor: Colors.transparent,
+                      isScrollControlled: true,
+                      builder: (context) => ShareTrustCardSheet(result: widget.result),
+                    );
+                  },
+                ),
+                const SizedBox(width: 8),
+                ReportDownloadButton(
+                  checkResult: widget.result,
+                  impactResult: widget.impact,
+                ),
+              ],
             ),
           ],
         ),

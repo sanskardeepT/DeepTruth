@@ -11,6 +11,7 @@ import '../engine/deepfake_engine.dart';
 import '../engine/reputation_engine.dart';
 import '../engine/consensus_engine.dart';
 import '../engine/trust_graph_service.dart';
+import 'firebase_service.dart';
 
 class GeminiService {
   GeminiService._();
@@ -90,7 +91,7 @@ class GeminiService {
     }
 
     final systemPrompt = '''
-You are the central engine of the DeepTruth X Trust Intelligence Operating System.
+You are the narrative context interpreter for the DeepTruth X Trust Intelligence Operating System.
 Your task is to analyze the content and visual context of the claim/image, validate the extracted on-device signals, and return a single, complete, valid JSON structure.
 No preamble, no markdown formatting fences.
 
@@ -103,16 +104,23 @@ On-Device Extraction Signals:
 - Deepfake Multi-stage Probabilities: Image: ${dfRes.imageRisk}%, Video: ${dfRes.videoRisk}%, Audio: ${dfRes.audioRisk}%, Overall: ${dfRes.deepfakeProbability}%
 - Source Domain: ${repRes.domain} (Reputation Score: ${repRes.reputationScore}/100, Successes: ${repRes.verificationSuccess})
 
+The mathematically calculated consensus values on-device are:
+- Trust Score: ${conRes.trustScore}/100
+- Verdict: ${conRes.verdict}
+- Confidence Score: ${conRes.confidenceScore}/100
+- Manipulation Score: ${conRes.manipulationScore}/100
+- Risk Score: ${conRes.riskScore}/100
+
+You must NEVER modify or suggest different scores or verdicts. Your sole job is to interpret these evidence vectors for the user.
+
 Return ONLY this valid JSON schema:
 {
-  "truthScore": ${conRes.trustScore},
-  "verdict": "${conRes.verdict}",
-  "explanation": "<contextual forensic explanation summary>",
+  "explanation": "<contextual forensic explanation summary of the evidence>",
+  "summary": "<brief human-readable evidence interpretation summarizing the verdict>",
   "missingContext": "<missing context or null>",
   "sources": ["<source name + URL>"],
   "manipulationTactics": ["<tactic>"],
   "logicalFallacies": ["<fallacy>"],
-  "manipulationScore": ${conRes.manipulationScore},
   "contentType": "<news|reel|link|post|statement|unknown>"
 }
 ''';
@@ -134,12 +142,14 @@ Return ONLY this valid JSON schema:
 
         final parsedJson = jsonDecode(_cleanJson(text)) as Map<String, dynamic>;
         final finalExplanation = parsedJson['explanation'] as String? ?? conRes.justification;
+        final finalSummary = parsedJson['summary'] as String? ?? 'Analysis completed with ${conRes.verdict} verdict.';
 
         return CheckResult(
           originalContent: content,
           truthScore: conRes.trustScore, // Deterministic Consensus Score
           verdict: conRes.verdict,       // Deterministic Consensus Verdict
           explanation: finalExplanation,
+          summary: finalSummary,
           missingContext: parsedJson['missingContext'] as String?,
           sources: (parsedJson['sources'] as List?)?.map((e) => e?.toString() ?? '').toList() ?? conRes.adjustments.map((a) => a['factor'] as String).toList(),
           manipulationTactics: (parsedJson['manipulationTactics'] as List?)?.map((e) => e?.toString() ?? '').toList() ?? const [],
@@ -158,6 +168,7 @@ Return ONLY this valid JSON schema:
         );
       } catch (e) {
         debugPrint('Gemini factCheck attempt $attempt failed: $e');
+        await FirebaseService.instance.logApiFailure('Gemini', e.toString());
         if (attempt == 3) break;
         await Future<void>.delayed(Duration(seconds: attempt * 2));
       }
@@ -168,6 +179,7 @@ Return ONLY this valid JSON schema:
       truthScore: conRes.trustScore,
       verdict: conRes.verdict,
       explanation: conRes.justification,
+      summary: 'Analysis completed locally due to API failure.',
       manipulationScore: conRes.manipulationScore,
       contentType: 'unknown',
       analyzedAt: DateTime.now(),

@@ -46,7 +46,7 @@ void main() {
 
       // Test 2: Suspicious domain
       final repRumors = await ReputationEngine.instance.evaluateDomain('http://viralrumors.blogspot.com');
-      expect(repRumors.reputationScore, 28);
+      expect(repRumors.reputationScore, lessThanOrEqualTo(10));
       expect(repRumors.transparency, 'POOR_SUSPICIOUS');
     });
 

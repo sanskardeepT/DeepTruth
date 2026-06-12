@@ -7,7 +7,6 @@ import '../models/check_result.dart';
 import '../models/impact_result.dart';
 import '../models/report_model.dart';
 import '../services/admob_service.dart';
-import '../services/fact_check_service.dart';
 import '../services/firebase_service.dart';
 import '../services/gemini_service.dart';
 import '../services/streak_service.dart';
