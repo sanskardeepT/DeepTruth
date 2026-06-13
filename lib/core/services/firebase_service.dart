@@ -40,7 +40,16 @@ class FirebaseService {
         'emergency_shutdown': false,
         'emergency_message': 'DeepTruth service is temporarily suspended due to emergency system upgrades. Please stand by.',
       });
-      await _remoteConfig!.fetchAndActivate();
+      await _remoteConfig!.setConfigSettings(RemoteConfigSettings(
+        fetchTimeout: const Duration(seconds: 10),
+        minimumFetchInterval: const Duration(hours: 1),
+      ));
+      try {
+        await _remoteConfig!.fetchAndActivate();
+      } catch (e) {
+        debugPrint('Remote Config fetch failed, using cached/defaults: $e');
+        await _remoteConfig!.activate(); // Use last cached values
+      }
 
       // ── Sync Remote Config API keys → Hive (for ApiKeys._getKey) ──
       try {
@@ -222,7 +231,10 @@ class FirebaseService {
   Future<void> logEvent(String name, [Map<String, dynamic>? params]) async {
     if (!_initialized || _analytics == null) return;
     try {
-      await _analytics!.logEvent(name: name, parameters: params);
+      final Map<String, Object>? castedParams = params != null
+          ? params.map((key, value) => MapEntry(key, value as Object))
+          : null;
+      await _analytics!.logEvent(name: name, parameters: castedParams);
     } catch (_) {}
   }
 

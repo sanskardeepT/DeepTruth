@@ -187,14 +187,15 @@ class MainShellState extends State<MainShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
+      body: Stack(
         children: List.generate(6, (i) {
-          // Only build visited screens; unvisited get an empty placeholder
-          if (_builtScreens.containsKey(i) || i == _currentIndex) {
-            return _buildScreen(i);
-          }
-          return const SizedBox.shrink();
+          final isActive = i == _currentIndex;
+          final isBuilt = _builtScreens.containsKey(i);
+          if (!isBuilt && !isActive) return const SizedBox.shrink();
+          return Offstage(
+            offstage: !isActive,
+            child: _buildScreen(i),
+          );
         }),
       ),
       bottomNavigationBar: _buildNavBar(),

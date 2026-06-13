@@ -53,12 +53,13 @@ class ApiKeys {
   static const String _prodNativeId       = 'YOUR_REAL_NATIVE_ID';
 
   static bool get _isRelease => const bool.fromEnvironment('dart.vm.product');
+  static bool get _hasProdIds => !_prodAppId.startsWith('YOUR_');
 
-  static String get adMobAppId           => _isRelease ? _prodAppId : _testAppId;
-  static String get bannerAdUnitId       => _isRelease ? _prodBannerId : _testBannerId;
-  static String get interstitialAdUnitId => _isRelease ? _prodInterstitialId : _testInterstitialId;
-  static String get rewardedAdUnitId     => _isRelease ? _prodRewardedId : _testRewardedId;
-  static String get nativeAdUnitId       => _isRelease ? _prodNativeId : _testNativeId;
+  static String get adMobAppId           => (_isRelease && _hasProdIds) ? _prodAppId : _testAppId;
+  static String get bannerAdUnitId       => (_isRelease && _hasProdIds) ? _prodBannerId : _testBannerId;
+  static String get interstitialAdUnitId => (_isRelease && _hasProdIds) ? _prodInterstitialId : _testInterstitialId;
+  static String get rewardedAdUnitId     => (_isRelease && _hasProdIds) ? _prodRewardedId : _testRewardedId;
+  static String get nativeAdUnitId       => (_isRelease && _hasProdIds) ? _prodNativeId : _testNativeId;
 
   // ── KEY VALIDATION GUARDS ──────────────────────────────────────
   /// Returns true if the given key is a real configured key (not a placeholder).
@@ -66,8 +67,6 @@ class ApiKeys {
       key.isNotEmpty && !key.startsWith('YOUR_');
 
   /// Returns true if AdMob IDs are configured for the current build mode.
-  /// In debug mode, test IDs are always valid.
-  /// In release mode, rejects the `YOUR_REAL_` placeholder.
-  static bool get isAdMobConfigured =>
-      !_isRelease || !_prodAppId.startsWith('YOUR_');
+  /// Always returns true because test IDs are used as compile-time fallbacks.
+  static bool get isAdMobConfigured => true;
 }

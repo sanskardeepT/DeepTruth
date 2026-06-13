@@ -156,6 +156,60 @@ class CheckResult {
     'trustGraph':          trustGraph?.toJson(),
   };
 
+  CheckResult copyWith({
+    String? originalContent,
+    int? truthScore,
+    String? verdict,
+    String? explanation,
+    String? summary,
+    String? missingContext,
+    List<String>? sources,
+    List<String>? manipulationTactics,
+    List<String>? logicalFallacies,
+    int? manipulationScore,
+    String? contentType,
+    DateTime? analyzedAt,
+    String? reportId,
+    String? imagePath,
+    String? sha256Hash,
+    DateTime? firstSeen,
+    DateTime? lastSeen,
+    int? scanCount,
+    C2PAResult? c2pa,
+    ProvenanceResult? provenance,
+    DeepfakeResult? deepfake,
+    ReputationResult? reputation,
+    ConsensusScores? consensus,
+    TrustGraph? trustGraph,
+  }) {
+    return CheckResult(
+      originalContent: originalContent ?? this.originalContent,
+      truthScore: truthScore ?? this.truthScore,
+      verdict: verdict ?? this.verdict,
+      explanation: explanation ?? this.explanation,
+      summary: summary ?? this.summary,
+      missingContext: missingContext ?? this.missingContext,
+      sources: sources ?? this.sources,
+      manipulationTactics: manipulationTactics ?? this.manipulationTactics,
+      logicalFallacies: logicalFallacies ?? this.logicalFallacies,
+      manipulationScore: manipulationScore ?? this.manipulationScore,
+      contentType: contentType ?? this.contentType,
+      analyzedAt: analyzedAt ?? this.analyzedAt,
+      reportId: reportId ?? this.reportId,
+      imagePath: imagePath ?? this.imagePath,
+      sha256Hash: sha256Hash ?? this.sha256Hash,
+      firstSeen: firstSeen ?? this.firstSeen,
+      lastSeen: lastSeen ?? this.lastSeen,
+      scanCount: scanCount ?? this.scanCount,
+      c2pa: c2pa ?? this.c2pa,
+      provenance: provenance ?? this.provenance,
+      deepfake: deepfake ?? this.deepfake,
+      reputation: reputation ?? this.reputation,
+      consensus: consensus ?? this.consensus,
+      trustGraph: trustGraph ?? this.trustGraph,
+    );
+  }
+
   String get verdictEmoji {
     switch (verdict) {
       case 'TRUE':       return '✅';

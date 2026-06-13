@@ -23,10 +23,16 @@ class GeminiService {
   bool get isInitialized => _initialized && _model != null;
 
   void initialize() {
+    final key = ApiKeys.gemini;
+    if (!ApiKeys.isKeyConfigured(key)) {
+      debugPrint('Gemini: No API key configured. Running in offline-only mode.');
+      _initialized = false;
+      return;
+    }
     try {
       _model = GenerativeModel(
         model: 'gemini-2.0-flash',
-        apiKey: ApiKeys.gemini,
+        apiKey: key,
         generationConfig: GenerationConfig(
           temperature: 0.1,
           maxOutputTokens: 2048,
@@ -35,7 +41,33 @@ class GeminiService {
       _initialized = true;
     } catch (e) {
       debugPrint('Gemini init failed: $e');
+      _initialized = false;
     }
+  }
+
+  String _buildLocalExplanation(
+    ConsensusScores consensus,
+    C2PAResult c2pa,
+    ProvenanceResult provenance,
+    DeepfakeResult deepfake,
+    ReputationResult reputation,
+  ) {
+    final buffer = StringBuffer();
+    buffer.writeln(consensus.justification);
+    buffer.writeln('\nVerification Breakdown:');
+    
+    if (c2pa.hasC2PA) {
+      buffer.writeln('• Provenance: Verified cryptographic C2PA signature (Publisher: ${c2pa.publisher}).');
+    } else if (provenance.exif.isNotEmpty) {
+      buffer.writeln('• Provenance: Consistent camera metadata/EXIF headers found (${provenance.camera ?? 'unknown device'}).');
+    } else {
+      buffer.writeln('• Provenance: Unsigned media. Cryptographic manifest and camera EXIF headers are missing.');
+    }
+    
+    buffer.writeln('• Visual Forensics: Manipulated probability estimated at ${deepfake.deepfakeProbability.toInt()}%. Risk metrics indicate ${deepfake.riskLevel.toUpperCase()} risk.');
+    buffer.writeln('• Domain Reputation: The source domain (${reputation.domain}) has a registry reputation rating of ${reputation.reputationScore.toInt()}/100.');
+    
+    return buffer.toString();
   }
 
   // ── FACT CHECK ───────────────────────────────────────────────────
@@ -69,13 +101,13 @@ class GeminiService {
       deepfakeFamily: dfRes.deepfakeProbability > 50 ? 'GAN Synthetic Media' : 'None',
     );
 
-    // If Gemini is not initialized, fallback to purely local calculations
+    // If Gemini is not initialized, fallback to purely local calculations with descriptive builder
     if (!_initialized || _model == null) {
       return CheckResult(
         originalContent: content,
         truthScore: conRes.trustScore,
         verdict: conRes.verdict,
-        explanation: conRes.justification,
+        explanation: _buildLocalExplanation(conRes, c2paRes, provRes, dfRes, repRes),
         manipulationScore: conRes.manipulationScore,
         contentType: 'unknown',
         analyzedAt: DateTime.now(),

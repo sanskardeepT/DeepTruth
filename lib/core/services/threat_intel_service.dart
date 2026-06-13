@@ -79,117 +79,97 @@ class ThreatIntelService {
     try {
       _incrementCount('virustotal');
 
-      // Step 1: Submit URL for scanning
-      final submitResponse = await _dio.post(
-        'https://www.virustotal.com/api/v3/urls',
-        data: 'url=${Uri.encodeComponent(url)}',
+      final response = await _dio.get(
+        'https://www.virustotal.com/vtapi/v2/url/report',
+        queryParameters: {
+          'apikey': apiKey,
+          'resource': url,
+        },
         options: Options(
-          headers: {
-            'x-apikey': apiKey,
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
           validateStatus: (status) => status != null && status < 500,
         ),
       );
 
-      if (submitResponse.statusCode != 200) {
-        throw Exception(
-          'VirusTotal submit failed: ${submitResponse.statusCode} — '
-          '${submitResponse.data}',
-        );
+      if (response.statusCode != 200) {
+        throw Exception('VirusTotal v2 returned ${response.statusCode}');
       }
 
-      final submitData = submitResponse.data as Map<String, dynamic>;
-      final analysisId = (submitData['data'] as Map<String, dynamic>?)?['id'] as String?;
+      final data = response.data as Map<String, dynamic>;
+      final responseCode = data['response_code'] as int?;
 
-      if (analysisId == null || analysisId.isEmpty) {
-        throw Exception('No analysis ID returned from VirusTotal.');
-      }
+      if (responseCode == 1) {
+        final malicious = data['positives'] as int? ?? 0;
+        final totalScanners = data['total'] as int? ?? 0;
+        final scanDate = data['scan_date'] as String? ?? 'Unknown';
 
-      // Step 2: Wait briefly for scan to complete, then fetch results
-      await Future<void>.delayed(const Duration(seconds: 3));
-
-      final resultResponse = await _dio.get(
-        'https://www.virustotal.com/api/v3/analyses/$analysisId',
-        options: Options(
-          headers: {'x-apikey': apiKey},
-          validateStatus: (status) => status != null && status < 500,
-        ),
-      );
-
-      if (resultResponse.statusCode != 200) {
-        throw Exception(
-          'VirusTotal result fetch failed: ${resultResponse.statusCode}',
-        );
-      }
-
-      final resultData = resultResponse.data as Map<String, dynamic>;
-      final attributes = (resultData['data'] as Map<String, dynamic>?)?['attributes']
-          as Map<String, dynamic>? ?? {};
-      final stats = attributes['stats'] as Map<String, dynamic>? ?? {};
-
-      final malicious = (stats['malicious'] as num?)?.toInt() ?? 0;
-      final suspicious = (stats['suspicious'] as num?)?.toInt() ?? 0;
-      final harmless = (stats['harmless'] as num?)?.toInt() ?? 0;
-      final undetected = (stats['undetected'] as num?)?.toInt() ?? 0;
-      final timeout = (stats['timeout'] as num?)?.toInt() ?? 0;
-      final totalScanners = malicious + suspicious + harmless + undetected + timeout;
-
-      // Parse top flagging engines
-      final engineResults = attributes['results'] as Map<String, dynamic>? ?? {};
-      final flaggingEngines = <String>[];
-      for (final entry in engineResults.entries) {
-        final engineData = entry.value as Map<String, dynamic>? ?? {};
-        final category = engineData['category'] as String? ?? '';
-        if (category == 'malicious' || category == 'suspicious') {
-          final result = engineData['result'] as String? ?? category;
-          flaggingEngines.add('${entry.key}: $result');
-          if (flaggingEngines.length >= 5) break; // Top 5 only
+        String riskLevel;
+        String verdict;
+        if (malicious >= 5) {
+          riskLevel = 'high';
+          verdict = 'MALICIOUS';
+        } else if (malicious >= 1) {
+          riskLevel = 'medium';
+          verdict = 'SUSPICIOUS';
+        } else {
+          riskLevel = 'low';
+          verdict = 'CLEAN';
         }
-      }
 
-      // Determine risk level
-      String riskLevel;
-      String verdict;
-      if (malicious >= 5) {
-        riskLevel = 'high';
-        verdict = 'MALICIOUS';
-      } else if (malicious >= 1 || suspicious >= 3) {
-        riskLevel = 'medium';
-        verdict = 'SUSPICIOUS';
+        final findings = <OsintFinding>[
+          OsintFinding(label: 'URL Scanned', value: url),
+          OsintFinding(label: 'Total Scanners', value: '$totalScanners'),
+          OsintFinding(
+            label: 'Malicious Detections',
+            value: '$malicious / $totalScanners',
+          ),
+          OsintFinding(label: 'Scan Date', value: scanDate),
+          OsintFinding(label: 'Verdict', value: verdict),
+        ];
+
+        final scans = data['scans'] as Map<String, dynamic>? ?? {};
+        final flaggingEngines = <String>[];
+        for (final entry in scans.entries) {
+          final engineData = entry.value as Map<String, dynamic>? ?? {};
+          final detected = engineData['detected'] as bool? ?? false;
+          if (detected) {
+            final result = engineData['result'] as String? ?? 'Malicious';
+            flaggingEngines.add('${entry.key}: $result');
+            if (flaggingEngines.length >= 5) break; // Top 5 only
+          }
+        }
+
+        if (flaggingEngines.isNotEmpty) {
+          findings.add(OsintFinding(
+            label: 'Top Flagging Engines',
+            value: flaggingEngines.join('\n'),
+          ));
+        }
+
+        return OsintResult(
+          queryType: OsintQueryType.url,
+          query: url,
+          findings: findings,
+          sources: const ['VirusTotal (virustotal.com)'],
+          riskLevel: riskLevel,
+          analyzedAt: DateTime.now(),
+        );
       } else {
-        riskLevel = 'low';
-        verdict = 'CLEAN';
+        return OsintResult(
+          queryType: OsintQueryType.url,
+          query: url,
+          findings: [
+            OsintFinding(label: 'URL Scanned', value: url),
+            const OsintFinding(
+              label: 'Status',
+              value: 'No scan history found for this URL on VirusTotal.',
+            ),
+            const OsintFinding(label: 'Verdict', value: 'CLEAN / UNKNOWN'),
+          ],
+          sources: const ['VirusTotal (virustotal.com)'],
+          riskLevel: 'low',
+          analyzedAt: DateTime.now(),
+        );
       }
-
-      final findings = <OsintFinding>[
-        OsintFinding(label: 'URL Scanned', value: url),
-        OsintFinding(label: 'Total Scanners', value: '$totalScanners'),
-        OsintFinding(
-          label: 'Malicious Detections',
-          value: '$malicious / $totalScanners',
-        ),
-        OsintFinding(label: 'Suspicious', value: '$suspicious'),
-        OsintFinding(label: 'Clean / Harmless', value: '$harmless'),
-        OsintFinding(label: 'Undetected', value: '$undetected'),
-        OsintFinding(label: 'Verdict', value: verdict),
-      ];
-
-      if (flaggingEngines.isNotEmpty) {
-        findings.add(OsintFinding(
-          label: 'Top Flagging Engines',
-          value: flaggingEngines.join('\n'),
-        ));
-      }
-
-      return OsintResult(
-        queryType: OsintQueryType.url,
-        query: url,
-        findings: findings,
-        sources: const ['VirusTotal (virustotal.com)'],
-        riskLevel: riskLevel,
-        analyzedAt: DateTime.now(),
-      );
     } catch (e) {
       debugPrint('VirusTotal scan failed: $e');
       await FirebaseService.instance.logApiFailure('VirusTotal', e.toString());

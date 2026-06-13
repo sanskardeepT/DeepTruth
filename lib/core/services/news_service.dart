@@ -148,23 +148,37 @@ class NewsService {
 
   // ── SUMMARIZE WITH GEMINI ─────────────────────────────────────────
   Future<List<NewsItem>> _summarizeArticles(List<NewsItem> articles) async {
+    if (!GeminiService.instance.isInitialized) return articles;
+    final box = Hive.box<String>(AppConstants.boxNews);
+    final result = <NewsItem>[];
+
     final toSummarize = articles.take(5).toList();
     final rest        = articles.skip(5).toList();
 
-    final summarized = await Future.wait(
-      toSummarize.map((a) async {
-        try {
-          final summary = await GeminiService.instance.summarizeNews(
-            '${a.title}\n${a.description}',
-          );
-          return a.copyWith(aiSummary: summary);
-        } catch (_) {
-          return a;
-        }
-      }),
-    );
+    for (final article in toSummarize) {
+      final cacheKey = 'summary_${article.id}';
+      final cached = box.get(cacheKey);
+      if (cached != null && cached.isNotEmpty) {
+        result.add(article.copyWith(aiSummary: cached));
+        continue;
+      }
+      // Only summarize if no existing summary
+      if (article.aiSummary != null && article.aiSummary!.isNotEmpty) {
+        result.add(article);
+        continue;
+      }
+      try {
+        final summary = await GeminiService.instance.summarizeNews(
+          '${article.title}\n${article.description}',
+        );
+        await box.put(cacheKey, summary);
+        result.add(article.copyWith(aiSummary: summary));
+      } catch (_) {
+        result.add(article);
+      }
+    }
 
-    return [...summarized, ...rest];
+    return [...result, ...rest];
   }
 
   // ── CACHE ─────────────────────────────────────────────────────────

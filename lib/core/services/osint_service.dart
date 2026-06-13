@@ -54,27 +54,16 @@ class OsintService {
     }
 
     try {
-      if (!ApiKeys.isKeyConfigured(ApiKeys.hibp)) {
-        return OsintResult.error(
-          OsintQueryType.email,
-          email,
-          'HIBP API key not configured. Add it in Settings → API Keys.',
-        );
-      }
       _incrementCount(OsintQueryType.email);
       final response = await _dio.get(
-        'https://haveibeenpwned.com/api/v3/breachedaccount/${Uri.encodeComponent(email)}',
+        'https://api.xposedornot.com/v1/check-email/${Uri.encodeComponent(email)}',
         options: Options(
-          headers: {
-            'hibp-api-key':   ApiKeys.hibp,
-            'user-agent':     'DeepTruth-App',
-            'Accept':         'application/json',
-          },
-          validateStatus: (status) => status == 200 || status == 404,
+          headers: {'User-Agent': 'DeepTruth-App/1.0'},
+          validateStatus: (s) => s != null && s < 500,
         ),
       );
 
-      if (response.statusCode == 404) {
+      if (response.statusCode == 404 || response.data == null) {
         return OsintResult(
           queryType:  OsintQueryType.email,
           query:      email,
@@ -84,31 +73,25 @@ class OsintService {
         );
       }
 
-      if (response.statusCode != 200) {
-        throw Exception('HIBP returned ${response.statusCode}');
-      }
-
-      final breaches = response.data as List<dynamic>;
-      final findings = breaches.map((b) {
-        final breach = b as Map<String, dynamic>;
-        return OsintFinding(
-          label:     breach['Name'] as String? ?? 'Unknown Breach',
-          value:     'Compromised on: ${breach['BreachDate'] ?? 'Unknown date'}',
-          sourceUrl: 'https://haveibeenpwned.com',
-        );
-      }).toList();
+      final data = response.data as Map<String, dynamic>;
+      final breaches = (data['breaches'] as List<dynamic>?) ?? [];
+      final findings = breaches.map((b) => OsintFinding(
+        label: b.toString(),
+        value: 'Data exposed in this breach',
+        sourceUrl: 'https://xposedornot.com',
+      )).toList();
 
       return OsintResult(
         queryType:  OsintQueryType.email,
         query:      email,
         findings:   findings,
-        sources:    ['HaveIBeenPwned.com'],
-        riskLevel:  breaches.length > 3 ? 'high' : 'medium',
+        sources:    const ['XposedOrNot.com'],
+        riskLevel:  breaches.length > 3 ? 'high' : (breaches.isNotEmpty ? 'medium' : 'low'),
         analyzedAt: DateTime.now(),
       );
     } catch (e) {
-      debugPrint('HIBP lookup failed: $e');
-      return OsintResult.error(OsintQueryType.email, email, 'Breach check unavailable: $e');
+      debugPrint('XposedOrNot lookup failed: $e');
+      return OsintResult.error(OsintQueryType.email, email, 'Breach check failed: $e');
     }
   }
 
@@ -122,27 +105,31 @@ class OsintService {
     }
     try {
       _incrementCount(OsintQueryType.ip);
-      final response = await _dio.get('https://ipapi.co/$ip/json/');
-      if (response.statusCode != 200) throw Exception('ipapi error');
+      final response = await _dio.get(
+        'http://ip-api.com/json/$ip?fields=status,message,country,regionName,city,isp,org,as,reverse,mobile,proxy,hosting,query',
+        options: Options(validateStatus: (s) => s != null && s < 500),
+      );
+      if (response.statusCode != 200 || response.data?['status'] == 'fail') {
+        return OsintResult.error(OsintQueryType.ip, ip, response.data?['message'] ?? 'IP lookup failed');
+      }
 
-      final data = response.data as Map<String, dynamic>;
-      final findings = <OsintFinding>[
-        OsintFinding(label: 'IP',           value: data['ip']           as String? ?? ip),
-        OsintFinding(label: 'City',         value: data['city']         as String? ?? 'Unknown'),
-        OsintFinding(label: 'Region',       value: data['region']       as String? ?? 'Unknown'),
-        OsintFinding(label: 'Country',      value: data['country_name'] as String? ?? 'Unknown'),
-        OsintFinding(label: 'ISP / Org',    value: data['org']          as String? ?? 'Unknown'),
-        OsintFinding(label: 'Timezone',     value: data['timezone']     as String? ?? 'Unknown'),
-        OsintFinding(label: 'Latitude',     value: '${data["latitude"] ?? "?"}'),
-        OsintFinding(label: 'Longitude',    value: '${data["longitude"] ?? "?"}'),
+      final d = response.data as Map<String, dynamic>;
+      final isProxy = d['proxy'] == true || d['hosting'] == true;
+      final findings = [
+        OsintFinding(label: 'Location', value: '${d['city'] ?? "Unknown"}, ${d['regionName'] ?? "Unknown"}, ${d['country'] ?? "Unknown"}'),
+        OsintFinding(label: 'ISP', value: d['isp'] as String? ?? 'Unknown'),
+        OsintFinding(label: 'Organization', value: d['org'] as String? ?? 'Unknown'),
+        OsintFinding(label: 'ASN', value: d['as'] as String? ?? 'Unknown'),
+        OsintFinding(label: 'Proxy/VPN/Hosting', value: isProxy ? '⚠️ Yes — suspicious' : '✅ No'),
+        OsintFinding(label: 'Mobile Network', value: d['mobile'] == true ? 'Yes' : 'No'),
       ];
 
       return OsintResult(
         queryType:  OsintQueryType.ip,
         query:      ip,
         findings:   findings,
-        sources:    ['ipapi.co'],
-        riskLevel:  'low',
+        sources:    const ['ip-api.com'],
+        riskLevel:  isProxy ? 'medium' : 'low',
         analyzedAt: DateTime.now(),
       );
     } catch (e) {
@@ -204,8 +191,25 @@ class OsintService {
       }
     } catch (_) {}
 
-    if (findings.isEmpty) {
-      findings.add(const OsintFinding(label: 'Result', value: 'No public profiles found on checked platforms.'));
+    // Add manual check buttons/links for other platforms
+    findings.add(OsintFinding(
+      label: 'Twitter / X',
+      value: 'Search manually on X 🔍',
+      sourceUrl: 'https://x.com/$username',
+    ));
+    findings.add(OsintFinding(
+      label: 'Instagram',
+      value: 'Search manually on Instagram 🔍',
+      sourceUrl: 'https://instagram.com/$username',
+    ));
+    findings.add(OsintFinding(
+      label: 'Facebook',
+      value: 'Search manually on Facebook 🔍',
+      sourceUrl: 'https://facebook.com/$username',
+    ));
+
+    if (sources.isEmpty) {
+      sources.add('Manual searches');
     }
 
     return OsintResult(

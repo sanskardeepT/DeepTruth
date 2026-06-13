@@ -24,6 +24,7 @@ import 'reverse_image_service.dart';
 import 'fact_check_service.dart';
 import 'firebase_service.dart';
 import 'streak_service.dart';
+import 'gemini_service.dart';
 
 class VerificationPipelineOrchestrator {
   VerificationPipelineOrchestrator._();
@@ -282,7 +283,13 @@ class VerificationPipelineOrchestrator {
       
       // Expanded metadata fields for Product Hardening / ML dataset collection
       resultJson['fileSizeBytes'] = fileBytes != null ? fileBytes.length : originalContent.codeUnits.length * 2;
-      resultJson['locale'] = Platform.localeName;
+      String locale = 'unknown';
+      try {
+        if (Platform.localeName.isNotEmpty) {
+          locale = Platform.localeName;
+        }
+      } catch (_) {}
+      resultJson['locale'] = locale;
       resultJson['devicePlatform'] = Platform.isAndroid ? 'android' : (Platform.isIOS ? 'ios' : 'desktop');
       resultJson['anonymousId'] = StreakService.instance.anonymousId;
       resultJson['benchmarkDurationMs'] = benchmarkDurationMs;
@@ -523,24 +530,105 @@ class VerificationPipelineOrchestrator {
     onStageChanged?.call('Searching Google Fact Check database…');
     final resultsMap = await _executePlugins('text', claim, null);
     final factChecks = resultsMap['fact_check'] as List<Map<String, dynamic>>? ?? [];
+
+    if (factChecks.isNotEmpty) {
+      onStageChanged?.call('Analyzing consensus fact ratings…');
+      final rating = factChecks[0]['rating'].toString().toLowerCase();
+      final isFalse = rating.contains('false') || rating.contains('incorrect') || rating.contains('fake');
+      final isTrue = rating.contains('true') || rating.contains('correct') || rating.contains('factual');
+
+      final baseResult = CheckResult(
+        originalContent: claim,
+        truthScore: isFalse ? 10 : (isTrue ? 85 : 50),
+        verdict: isFalse ? 'FALSE' : (isTrue ? 'TRUE' : 'UNVERIFIED'),
+        explanation: 'Fact-checked by ${factChecks[0]['source']}: ${factChecks[0]['rating']}',
+        manipulationScore: isFalse ? 90 : 0,
+        contentType: 'text',
+        analyzedAt: DateTime.now(),
+        reportId: reportId,
+        sha256Hash: hash,
+      );
+      return FactCheckService.instance.mergeWithCheckResult(baseResult, factChecks);
+    }
+
+    if (GeminiService.instance.isInitialized) {
+      onStageChanged?.call('Analyzing claim with AI…');
+      try {
+        final geminiResult = await GeminiService.instance.factCheck(claim);
+        return geminiResult.copyWith(sha256Hash: hash, reportId: reportId);
+      } catch (e) {
+        debugPrint('Gemini claim analysis failed: $e');
+      }
+    }
+
+    onStageChanged?.call('Running offline linguistic analysis…');
+    return _buildLinguisticHeuristicResult(claim, hash, reportId);
+  }
+
+  CheckResult _buildLinguisticHeuristicResult(String claim, String hash, String reportId) {
+    final lower = claim.toLowerCase();
+    final misinfoSignals = [
+      'free recharge', 'government giving', 'whatsapp forward', 'share now', 
+      'limited time', 'click here', '100% guaranteed', 'congratulations you won', 
+      'send to 10 friends', 'nasa confirms', 'doctors hate', 'shocking truth'
+    ];
+    final credibleSignals = [
+      'according to', 'study shows', 'published in', 'researchers found',
+      'government announced', 'official statement', 'press release'
+    ];
     
-    onStageChanged?.call('Analyzing consensus fact ratings…');
-    CheckResult baseResult = CheckResult(
+    int misinfoCount = misinfoSignals.where((s) => lower.contains(s)).length;
+    int credibleCount = credibleSignals.where((s) => lower.contains(s)).length;
+    
+    int score = 50;
+    score -= misinfoCount * 15;
+    score += credibleCount * 10;
+    score = score.clamp(0, 100);
+    
+    String verdict = score >= 65 ? 'UNVERIFIED' : (score >= 35 ? 'MISLEADING' : 'FALSE');
+    String explanation = score >= 65
+      ? 'No fact-check records found. Claim could not be verified from public databases. Treat with caution.'
+      : 'Claim contains linguistic patterns commonly associated with misinformation. No credible sources found.';
+      
+    final consensus = ConsensusScores(
+      authenticityScore: 0,
+      trustScore: score,
+      manipulationScore: 100 - score,
+      riskScore: 100 - score,
+      confidenceScore: 60,
+      verdict: verdict,
+      justification: explanation,
+      adjustments: [
+        {
+          'category': 'factcheck',
+          'impact': score,
+          'factor': 'Linguistic heuristic offline check score: $score/100',
+        }
+      ],
+    );
+
+    return CheckResult(
       originalContent: claim,
-      truthScore: factChecks.isNotEmpty ? (factChecks[0]['rating'] == 'False' ? 10 : 80) : 50,
-      verdict: factChecks.isNotEmpty ? (factChecks[0]['rating'] == 'False' ? 'FALSE' : 'TRUE') : 'UNVERIFIED',
-      explanation: factChecks.isNotEmpty
-          ? 'Fact-checked by ${factChecks[0]['source']}: ${factChecks[0]['rating']}'
-          : 'No official fact-check reports found for this claim.',
-      manipulationScore: factChecks.isNotEmpty ? (factChecks[0]['rating'] == 'False' ? 90 : 0) : 0,
+      truthScore: score,
+      verdict: verdict,
+      explanation: explanation,
+      manipulationScore: 100 - score,
       contentType: 'text',
       analyzedAt: DateTime.now(),
       reportId: reportId,
       sha256Hash: hash,
+      sources: const ['DeepTruth Offline Linguistic Analysis'],
+      consensus: consensus,
+      trustGraph: TrustGraph(
+        nodes: [
+          const TrustGraphNode(id: 'claim', label: 'Claim Text', type: 'source'),
+          const TrustGraphNode(id: 'heuristic', label: 'Heuristic Engine', type: 'analysis'),
+        ],
+        edges: [
+          const TrustGraphEdge(from: 'claim', to: 'heuristic', relation: 'analyzed_by'),
+        ],
+      ),
     );
-
-    // Merge Google Fact Check URLs into sources
-    return FactCheckService.instance.mergeWithCheckResult(baseResult, factChecks);
   }
 
   // ══════════════════════════════════════════════════════════════════

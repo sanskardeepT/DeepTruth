@@ -16,17 +16,6 @@ class AdMobService {
 
   // ── BANNER ────────────────────────────────────────────────────────
   BannerAd createBannerAd() {
-    if (!ApiKeys.isAdMobConfigured) {
-      // Return a dummy ad that will never load in release builds with no real ID
-      return BannerAd(
-        adUnitId: ApiKeys.bannerAdUnitId,
-        size: AdSize.banner,
-        request: const AdRequest(),
-        listener: BannerAdListener(
-          onAdFailedToLoad: (ad, _) => ad.dispose(),
-        ),
-      );
-    }
     return BannerAd(
       adUnitId: ApiKeys.bannerAdUnitId,
       size: AdSize.banner,
