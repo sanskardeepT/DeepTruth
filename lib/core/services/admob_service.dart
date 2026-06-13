@@ -16,6 +16,17 @@ class AdMobService {
 
   // ── BANNER ────────────────────────────────────────────────────────
   BannerAd createBannerAd() {
+    if (!ApiKeys.isAdMobConfigured) {
+      // Return a dummy ad that will never load in release builds with no real ID
+      return BannerAd(
+        adUnitId: ApiKeys.bannerAdUnitId,
+        size: AdSize.banner,
+        request: const AdRequest(),
+        listener: BannerAdListener(
+          onAdFailedToLoad: (ad, _) => ad.dispose(),
+        ),
+      );
+    }
     return BannerAd(
       adUnitId: ApiKeys.bannerAdUnitId,
       size: AdSize.banner,
@@ -31,6 +42,7 @@ class AdMobService {
 
   // ── INTERSTITIAL ──────────────────────────────────────────────────
   void preloadInterstitial() {
+    if (!ApiKeys.isAdMobConfigured) return;
     InterstitialAd.load(
       adUnitId: ApiKeys.interstitialAdUnitId,
       request: const AdRequest(),
@@ -81,6 +93,7 @@ class AdMobService {
 
   // ── REWARDED ──────────────────────────────────────────────────────
   void preloadRewardedAd() {
+    if (!ApiKeys.isAdMobConfigured) return;
     RewardedAd.load(
       adUnitId: ApiKeys.rewardedAdUnitId,
       request: const AdRequest(),

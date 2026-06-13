@@ -42,6 +42,32 @@ class FirebaseService {
       });
       await _remoteConfig!.fetchAndActivate();
 
+      // ── Sync Remote Config API keys → Hive (for ApiKeys._getKey) ──
+      try {
+        if (Hive.isBoxOpen(AppConstants.boxSettings)) {
+          final box = Hive.box<String>(AppConstants.boxSettings);
+          const remoteKeyMap = {
+            'rc_gemini_key': 'custom_key_gemini',
+            'rc_news_api_key': 'custom_key_news_api',
+            'rc_gnews_key': 'custom_key_g_news',
+            'rc_fact_check_key': 'custom_key_google_fact_check',
+            'rc_cse_key': 'custom_key_google_cse_key',
+            'rc_cse_cx': 'custom_key_google_cse_cx',
+            'rc_hibp_key': 'custom_key_hibp',
+            'rc_virustotal_key': 'custom_key_virus_total',
+            'rc_urlscan_key': 'custom_key_urlscan',
+          };
+          for (final entry in remoteKeyMap.entries) {
+            final val = _remoteConfig!.getString(entry.key);
+            if (val.isNotEmpty && !val.startsWith('YOUR_')) {
+              await box.put(entry.value, val);
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Remote Config → Hive key sync failed: $e');
+      }
+
       // FCM Initialization
       try {
         final messaging = FirebaseMessaging.instance;

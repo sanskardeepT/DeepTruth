@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hive/hive.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'core/constants/app_colors.dart';
@@ -75,13 +76,86 @@ class MainShell extends StatefulWidget {
 
 class MainShellState extends State<MainShell> {
   int _currentIndex = 0;
+  final Map<int, Widget> _builtScreens = {};
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkPrivacyConsent();
       _checkSoftUpdate();
     });
+  }
+
+  void _checkPrivacyConsent() {
+    try {
+      if (!Hive.isBoxOpen(AppConstants.boxSettings)) return;
+      final box = Hive.box<String>(AppConstants.boxSettings);
+      final accepted = box.get('privacy_consent_accepted');
+      if (accepted == 'true') return;
+
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: AppColors.bgCard,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.privacy_tip_rounded, color: AppColors.accent, size: 24),
+              SizedBox(width: 8),
+              Text('Privacy & Data Notice',
+                  style: TextStyle(color: AppColors.textPrimary, fontSize: 18)),
+            ],
+          ),
+          content: const Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'DeepTruth collects anonymous usage analytics, crash reports, and verification data to improve the service.',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 14, height: 1.5),
+              ),
+              SizedBox(height: 12),
+              Text(
+                'We comply with GDPR (EU) and DPDP Act (India). Your data is never sold to third parties.',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 14, height: 1.5),
+              ),
+              SizedBox(height: 12),
+              Text(
+                'By continuing, you agree to our Privacy Policy and Terms of Service. You can review these in Settings → Legal Center.',
+                style: TextStyle(color: AppColors.textMuted, fontSize: 12, height: 1.4),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const _PrivacyPolicyStub(),
+                  ),
+                );
+              },
+              child: const Text('Read Policy', style: TextStyle(color: AppColors.textMuted)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                box.put('privacy_consent_accepted', 'true');
+                Navigator.of(ctx).pop();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.accent,
+                foregroundColor: AppColors.bgPrimary,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: const Text('I Accept'),
+            ),
+          ],
+        ),
+      );
+    } catch (_) {}
   }
 
   void _checkSoftUpdate() {
@@ -96,21 +170,32 @@ class MainShellState extends State<MainShell> {
     if (mounted) setState(() => _currentIndex = index);
   }
 
-  final List<Widget> _screens = const [
-    HomeScreen(),
-    TruthLensScreen(),
-    TrustFeedScreen(),
-    TraceIQScreen(),
-    AskIQScreen(),
-    StreakScreen(),
-  ];
+  Widget _buildScreen(int index) {
+    return _builtScreens.putIfAbsent(index, () {
+      switch (index) {
+        case 0: return const HomeScreen();
+        case 1: return const TruthLensScreen();
+        case 2: return const TrustFeedScreen();
+        case 3: return const TraceIQScreen();
+        case 4: return const AskIQScreen();
+        case 5: return const StreakScreen();
+        default: return const HomeScreen();
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
-        children: _screens,
+        children: List.generate(6, (i) {
+          // Only build visited screens; unvisited get an empty placeholder
+          if (_builtScreens.containsKey(i) || i == _currentIndex) {
+            return _buildScreen(i);
+          }
+          return const SizedBox.shrink();
+        }),
       ),
       bottomNavigationBar: _buildNavBar(),
     );
@@ -281,3 +366,62 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
   }
 }
 
+/// Minimal privacy policy display for first-launch consent flow.
+class _PrivacyPolicyStub extends StatelessWidget {
+  const _PrivacyPolicyStub();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.bgPrimary,
+      appBar: AppBar(
+        backgroundColor: AppColors.bgSecondary,
+        title: const Text('Privacy Policy',
+            style: TextStyle(color: AppColors.textPrimary, fontSize: 16)),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.accent, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: const SingleChildScrollView(
+        padding: EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('DeepTruth Privacy Policy',
+                style: TextStyle(color: AppColors.textPrimary, fontSize: 20, fontWeight: FontWeight.bold)),
+            SizedBox(height: 16),
+            Text(
+              'Last updated: June 2026\n\n'
+              '1. DATA COLLECTION\n'
+              'We collect anonymous usage analytics (Firebase Analytics), crash reports (Firebase Crashlytics), '
+              'and verification data (claims, URLs, images you submit for fact-checking). '
+              'We do not collect your name, email, phone number, or any personally identifiable information.\n\n'
+              '2. DATA USAGE\n'
+              'Your data is used exclusively to:\n'
+              '• Improve verification accuracy\n'
+              '• Track app performance and crashes\n'
+              '• Power the Evidence Vault (de-duplication of scanned content)\n'
+              '• Display aggregated analytics in the admin dashboard\n\n'
+              '3. DATA SHARING\n'
+              'We do NOT sell, rent, or share your data with third parties. '
+              'External APIs (VirusTotal, URLScan, Google Fact Check) receive only the content you explicitly submit for scanning.\n\n'
+              '4. DATA RETENTION\n'
+              'Verification records are retained indefinitely in the Evidence Vault for community benefit. '
+              'You can request deletion by contacting support.\n\n'
+              '5. GDPR & DPDP COMPLIANCE\n'
+              'Users in the EU have the right to access, rectify, and delete their data under GDPR. '
+              'Users in India have equivalent rights under the Digital Personal Data Protection Act, 2023.\n\n'
+              '6. ADVERTISING\n'
+              'We use Google AdMob for monetization. AdMob may collect device identifiers for ad personalization. '
+              'You can opt out of personalized ads in your device settings.\n\n'
+              '7. CONTACT\n'
+              'For privacy inquiries, contact: privacy@deeptruth.app',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 14, height: 1.6),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

@@ -153,11 +153,11 @@ class StreakService {
       final box = Hive.box<String>(AppConstants.boxSettings);
       final id  = box.get('anonymous_id');
       if (id != null) return id;
-      final newId = _uuid.v4().substring(0, 8);
+      final newId = _uuid.v4();
       box.put('anonymous_id', newId);
       return newId;
     } catch (_) {
-      return _uuid.v4().substring(0, 8);
+      return _uuid.v4();
     }
   }
 }

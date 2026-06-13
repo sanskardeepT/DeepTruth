@@ -30,7 +30,11 @@ class VerificationPipelineOrchestrator {
   static final VerificationPipelineOrchestrator instance =
       VerificationPipelineOrchestrator._();
 
-  final _firestore = FirebaseFirestore.instance;
+  FirebaseFirestore? _firestoreInstance;
+  FirebaseFirestore get _firestore {
+    _firestoreInstance ??= FirebaseFirestore.instance;
+    return _firestoreInstance!;
+  }
   final _uuid = const Uuid();
 
   // Modular verification plugins registry

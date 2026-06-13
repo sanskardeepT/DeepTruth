@@ -89,6 +89,9 @@ class NewsService {
     String category,
     int page,
   ) async {
+    if (!ApiKeys.isKeyConfigured(ApiKeys.newsApi)) {
+      throw Exception('NewsAPI key not configured. Add it in Settings → API Keys.');
+    }
     final countryCode = _countryToCode(country);
     final cat = category == 'all' ? 'general' : category;
 
@@ -116,6 +119,9 @@ class NewsService {
 
   // ── PRIVATE — GNEWS ───────────────────────────────────────────────
   Future<List<NewsItem>> _fetchFromGNews(String country, String category) async {
+    if (!ApiKeys.isKeyConfigured(ApiKeys.gNews)) {
+      throw Exception('GNews API key not configured. Add it in Settings → API Keys.');
+    }
     final lang = _countryToLang(country);
     final cat  = category == 'all' ? 'general' : category;
 

@@ -1,0 +1,55 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "lastActive", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "evidence_vault",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "inputType", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "top_queries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "scanCount", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "trending_checks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "checkCount", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "user_feedback",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "submittedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "announcements",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "leaderboard",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "streakDays", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

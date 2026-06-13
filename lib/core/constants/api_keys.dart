@@ -59,4 +59,15 @@ class ApiKeys {
   static String get interstitialAdUnitId => _isRelease ? _prodInterstitialId : _testInterstitialId;
   static String get rewardedAdUnitId     => _isRelease ? _prodRewardedId : _testRewardedId;
   static String get nativeAdUnitId       => _isRelease ? _prodNativeId : _testNativeId;
+
+  // ── KEY VALIDATION GUARDS ──────────────────────────────────────
+  /// Returns true if the given key is a real configured key (not a placeholder).
+  static bool isKeyConfigured(String key) =>
+      key.isNotEmpty && !key.startsWith('YOUR_');
+
+  /// Returns true if AdMob IDs are configured for the current build mode.
+  /// In debug mode, test IDs are always valid.
+  /// In release mode, rejects the `YOUR_REAL_` placeholder.
+  static bool get isAdMobConfigured =>
+      !_isRelease || !_prodAppId.startsWith('YOUR_');
 }

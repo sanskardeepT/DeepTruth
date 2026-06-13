@@ -54,6 +54,13 @@ class OsintService {
     }
 
     try {
+      if (!ApiKeys.isKeyConfigured(ApiKeys.hibp)) {
+        return OsintResult.error(
+          OsintQueryType.email,
+          email,
+          'HIBP API key not configured. Add it in Settings → API Keys.',
+        );
+      }
       _incrementCount(OsintQueryType.email);
       final response = await _dio.get(
         'https://haveibeenpwned.com/api/v3/breachedaccount/${Uri.encodeComponent(email)}',
